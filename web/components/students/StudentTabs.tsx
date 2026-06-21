@@ -18,7 +18,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   social: 'bg-teal-100 text-teal-700',
 }
 
-type AiSummaries = Record<string, { content: string; updated_at: string }>
+type AiSummaries = Record<string, { content: string; updated_at: string } | undefined>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function StudentTabs({ student, observations, interests, aiSummaries }: {
