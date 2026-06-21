@@ -79,7 +79,8 @@ export function AnalyticsClient({
               <YAxis tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} width={24} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                formatter={(v: number, name: string) => [v, name === 'total' ? 'Всего' : 'Тревожных']}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(v: any, name: any) => [v, name === 'total' ? 'Всего' : 'Тревожных']}
               />
               <Area type="monotone" dataKey="total" fill="#DBEAFE" stroke="#3B82F6" strokeWidth={2} dot={false} name="total" />
               <Line type="monotone" dataKey="alerts" stroke="#EF4444" strokeWidth={2} dot={false} name="alerts" />
@@ -105,7 +106,8 @@ export function AnalyticsClient({
                 <Pie data={departureReasons} cx={60} cy={60} innerRadius={28} outerRadius={50} dataKey="value" stroke="none">
                   {departureReasons.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => [`${v} уч. (${Math.round(v / reasonsTotal * 100)}%)`, '']} />
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <Tooltip formatter={(v: any) => [`${v} уч. (${Math.round(v / reasonsTotal * 100)}%)`, '']} />
               </PieChart>
               <div className="w-full space-y-1.5">
                 {departureReasons.map((d) => (
