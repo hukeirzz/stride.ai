@@ -9,53 +9,44 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: student } = await supabase
-    .from('students')
-    .select('id, school_id, class_id, full_name, photo_url, parent_name, parent_phone, risk_level, status, goals, created_at, family_situation, health_status, dream, parent_goal, class:classes(name)')
-    .eq('id', id)
-    .single()
+  // Batch 1: student + auth + queries that only need student id
+  const [{ data: student }, { data: { user } }, { data: observations }, { data: interests }, { data: aiInsight }] = await Promise.all([
+    supabase.from('students')
+      .select('id, school_id, class_id, full_name, photo_url, parent_name, parent_phone, risk_level, status, goals, created_at, family_situation, health_status, dream, parent_goal, class:classes(name)')
+      .eq('id', id).single(),
+    supabase.auth.getUser(),
+    supabase.from('observations')
+      .select('*, author:users(full_name)')
+      .eq('student_id', id).eq('source', 'manual')
+      .order('created_at', { ascending: false }).limit(10),
+    supabase.from('student_interests').select('*').eq('student_id', id).single(),
+    supabase.from('ai_insights')
+      .select('overview, interests, academic, extracurricular, achievements, psychology, generated_at')
+      .eq('student_id', id).single(),
+  ])
 
   if (!student) notFound()
 
-  const { data: classes } = await supabase
-    .from('classes').select('id, name').eq('school_id', student.school_id).order('name')
+  // Batch 2: queries that need student.school_id / student.class_id / user.id
+  const [{ data: classes }, classTeacherRes, { data: currentUser }] = await Promise.all([
+    supabase.from('classes').select('id, name').eq('school_id', student.school_id).order('name'),
+    student.class_id
+      ? supabase.from('users').select('full_name').eq('class_id', student.class_id).eq('role', 'class_teacher').single()
+      : Promise.resolve({ data: null }),
+    supabase.from('users').select('role').eq('id', user!.id).single(),
+  ])
 
-  const { data: observations } = await supabase
-    .from('observations')
-    .select('*, author:users(full_name)')
-    .eq('student_id', id)
-    .eq('source', 'manual')
-    .order('created_at', { ascending: false })
-    .limit(10)
-
-  const { data: interests } = await supabase
-    .from('student_interests')
-    .select('*')
-    .eq('student_id', id)
-    .single()
-
-  const { data: classTeacher } = student.class_id
-    ? await supabase.from('users').select('full_name').eq('class_id', student.class_id).eq('role', 'class_teacher').single()
-    : { data: null }
-
-  const { data: aiInsight } = await supabase
-    .from('ai_insights')
-    .select('overview, interests, academic, extracurricular, achievements, psychology, generated_at')
-    .eq('student_id', id)
-    .single()
+  const classTeacher = classTeacherRes.data
+  const canEdit = ['admin', 'deputy', 'manager', 'class_teacher'].includes(currentUser?.role ?? '')
 
   const aiSummaries = {
-    overview:     aiInsight?.overview     ? { content: aiInsight.overview,       updated_at: aiInsight.generated_at } : undefined,
-    interests:    aiInsight?.interests    ? { content: aiInsight.interests,      updated_at: aiInsight.generated_at } : undefined,
-    performance:  aiInsight?.academic     ? { content: aiInsight.academic,       updated_at: aiInsight.generated_at } : undefined,
-    activity:     aiInsight?.extracurricular ? { content: aiInsight.extracurricular, updated_at: aiInsight.generated_at } : undefined,
-    achievements: aiInsight?.achievements ? { content: aiInsight.achievements,   updated_at: aiInsight.generated_at } : undefined,
-    psychology:   aiInsight?.psychology   ? { content: aiInsight.psychology,     updated_at: aiInsight.generated_at } : undefined,
+    overview:     aiInsight?.overview        ? { content: aiInsight.overview,          updated_at: aiInsight.generated_at } : undefined,
+    interests:    aiInsight?.interests       ? { content: aiInsight.interests,         updated_at: aiInsight.generated_at } : undefined,
+    performance:  aiInsight?.academic        ? { content: aiInsight.academic,          updated_at: aiInsight.generated_at } : undefined,
+    activity:     aiInsight?.extracurricular ? { content: aiInsight.extracurricular,   updated_at: aiInsight.generated_at } : undefined,
+    achievements: aiInsight?.achievements   ? { content: aiInsight.achievements,      updated_at: aiInsight.generated_at } : undefined,
+    psychology:   aiInsight?.psychology     ? { content: aiInsight.psychology,        updated_at: aiInsight.generated_at } : undefined,
   }
-
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user!.id).single()
-  const canEdit = ['admin', 'deputy', 'manager', 'class_teacher'].includes(currentUser?.role ?? '')
 
   const initials = student.full_name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
   const className = (student.class as { name?: string } | null)?.name ?? '—'
@@ -71,68 +62,78 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
 
       {/* Profile card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-4 sm:gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0 overflow-hidden">
-              {student.photo_url
-                ? <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
-                : initials
-              }
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h1 className="text-xl font-bold text-gray-900">{student.full_name}</h1>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Активен</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  student.risk_level === 'high' ? 'bg-red-100 text-red-700' :
-                  student.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {student.risk_level === 'high' ? 'Высокий риск' : student.risk_level === 'medium' ? 'Средний риск' : 'Норма'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">
-                {className} класс
-                {classTeacher?.full_name && (
-                  <span className="text-gray-400"> · Кл. рук.: {classTeacher.full_name}</span>
+        <div className="flex items-start gap-4 sm:gap-5">
+          {/* Avatar */}
+          <div className="w-16 h-16 rounded-2xl bg-blue-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0 overflow-hidden">
+            {student.photo_url
+              ? <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
+              : initials
+            }
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h1 className="text-xl font-bold text-gray-900">{student.full_name}</h1>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Активен</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    student.risk_level === 'high' ? 'bg-red-100 text-red-700' :
+                    student.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {student.risk_level === 'high' ? 'Высокий риск' : student.risk_level === 'medium' ? 'Средний риск' : 'Норма'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {className} класс
+                  {classTeacher?.full_name && (
+                    <span className="text-gray-400"> · Кл. рук.: {classTeacher.full_name}</span>
+                  )}
+                </p>
+                {(interests?.subjects ?? []).length > 0 && (
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {(interests!.subjects as string[]).map((s: string) => (
+                      <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{s}</span>
+                    ))}
+                  </div>
                 )}
-              </p>
-              {(interests?.subjects ?? []).length > 0 && (
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {(interests!.subjects as string[]).map((s: string) => (
-                    <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{s}</span>
-                  ))}
+              </div>
+              {canEdit && (
+                <StudentEditModal
+                  student={{
+                    id: student.id,
+                    full_name: student.full_name,
+                    parent_name: student.parent_name,
+                    parent_phone: student.parent_phone,
+                    photo_url: student.photo_url,
+                    class_id: student.class_id,
+                  }}
+                  classes={classes ?? []}
+                />
+              )}
+            </div>
+
+            {/* Parent contacts */}
+            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-x-5 gap-y-1.5">
+              <p className="w-full text-xs text-gray-400">Контакты родителей</p>
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                <span>{student.parent_name || '—'}</span>
+              </div>
+              {student.parent_phone ? (
+                <a href={`tel:${student.parent_phone}`} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 transition-colors">
+                  <Phone className="w-3 h-3 flex-shrink-0" />
+                  <span>{student.parent_phone}</span>
+                </a>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  <span>—</span>
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Parent contacts */}
-            <div className="text-right">
-              <p className="text-xs text-gray-400 mb-1">Контакты родителей</p>
-              <div className="flex items-center gap-1 justify-end text-gray-600">
-                <User className="w-3 h-3 flex-shrink-0" />
-                <span className="text-xs">{student.parent_name || '—'}</span>
-              </div>
-              <div className="flex items-center gap-1 justify-end text-gray-500 mt-0.5">
-                <Phone className="w-3 h-3 flex-shrink-0" />
-                <span className="text-xs">{student.parent_phone || '—'}</span>
-              </div>
-            </div>
-            {canEdit && (
-              <StudentEditModal
-                student={{
-                  id: student.id,
-                  full_name: student.full_name,
-                  parent_name: student.parent_name,
-                  parent_phone: student.parent_phone,
-                  photo_url: student.photo_url,
-                  class_id: student.class_id,
-                }}
-                classes={classes ?? []}
-              />
-            )}
           </div>
         </div>
       </div>
