@@ -66,14 +66,14 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Книга ученика</h1>
           <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Автоматически сформированный профиль · PDF формат</p>
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+        <div className="flex gap-2 flex-shrink-0">
+          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Printer className="w-4 h-4" /> Печать
           </button>
-          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Share2 className="w-4 h-4" /> Поделиться
           </button>
-          <button className="flex items-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-3 py-2 sm:px-4 rounded-lg transition-colors">
+          <button className="flex items-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-3 py-2 sm:px-4 rounded-lg transition-colors whitespace-nowrap">
             <Download className="w-4 h-4" /> Скачать PDF
           </button>
         </div>
