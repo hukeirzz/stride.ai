@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Users, AlertTriangle, Eye, TrendingUp, TrendingDown, Sparkles, Trash2, ShieldAlert } from 'lucide-react'
 import { deleteObservation, dismissAlert } from '@/app/(dashboard)/observations/actions'
@@ -303,15 +303,35 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
 }
 
 function InfoTooltip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent | TouchEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('touchstart', onOutside)
+    return () => {
+      document.removeEventListener('mousedown', onOutside)
+      document.removeEventListener('touchstart', onOutside)
+    }
+  }, [])
+
   return (
-    <div className="relative group/tip">
-      <button className="w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold flex items-center justify-center hover:bg-gray-200 transition-colors leading-none">
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold flex items-center justify-center hover:bg-gray-200 transition-colors leading-none"
+      >
         ?
       </button>
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-gray-900 text-white text-[11px] rounded-xl px-3 py-2 opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none z-50 text-center shadow-lg">
-        {text}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-      </div>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-gray-900 text-white text-[11px] rounded-xl px-3 py-2 z-50 text-center shadow-lg">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        </div>
+      )}
     </div>
   )
 }
