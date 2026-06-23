@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Sparkles, AlertCircle } from 'lucide-react'
+import { ReactionBar } from '@/components/observations/ReactionBar'
 const NO_DATA = 'Данных пока недостаточно.'
 
 const TABS = ['Обзор', 'Интересы', 'Успеваемость', 'Активность', 'Достижения', 'Психология']
@@ -21,8 +22,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 type AiSummaries = Record<string, { content: string; updated_at: string } | undefined>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function StudentTabs({ student, observations, interests, aiSummaries }: {
-  student: any; observations: any[]; interests: any; aiSummaries: AiSummaries
+export function StudentTabs({ student, observations, interests, aiSummaries, currentUserId }: {
+  student: any; observations: any[]; interests: any; aiSummaries: AiSummaries; currentUserId: string
 }) {
   const [active, setActive] = useState('Обзор')
 
@@ -56,7 +57,7 @@ export function StudentTabs({ student, observations, interests, aiSummaries }: {
         </div>
       </div>
 
-      <ObservationsTable observations={observations} />
+      <ObservationsTable observations={observations} currentUserId={currentUserId} />
     </div>
   )
 }
@@ -193,7 +194,7 @@ function AiOnlyTab({ ai }: { ai?: { content: string; updated_at: string } }) {
 // ── Observations table ────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ObsRow({ obs }: { obs: any }) {
+function ObsRow({ obs, currentUserId }: { obs: any; currentUserId: string }) {
   const [expanded, setExpanded] = useState(false)
   const isLong = obs.content?.length > 120
 
@@ -214,6 +215,11 @@ function ObsRow({ obs }: { obs: any }) {
             {expanded ? 'Свернуть' : 'Раскрыть'}
           </button>
         )}
+        <ReactionBar
+          observationId={obs.id}
+          currentUserId={currentUserId}
+          initial={obs.reactions ?? []}
+        />
       </td>
       <td className="px-6 py-3 text-xs text-gray-500 whitespace-nowrap">{obs.author?.full_name ?? '—'}</td>
       <td className="px-6 py-3 whitespace-nowrap">
@@ -227,7 +233,7 @@ function ObsRow({ obs }: { obs: any }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ObservationsTable({ observations }: { observations: any[] }) {
+function ObservationsTable({ observations, currentUserId }: { observations: any[]; currentUserId: string }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -246,7 +252,7 @@ function ObservationsTable({ observations }: { observations: any[] }) {
             </tr>
           </thead>
           <tbody>
-            {observations.map((obs) => <ObsRow key={obs.id} obs={obs} />)}
+            {observations.map((obs) => <ObsRow key={obs.id} obs={obs} currentUserId={currentUserId} />)}
             {observations.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-center text-sm text-gray-400 py-10">Наблюдений пока нет</td>

@@ -55,6 +55,24 @@ export interface Student {
   class?: Class
 }
 
+export type ReactionEmoji =
+  | 'thumbs_up'
+  | 'thumbs_down'
+  | 'laugh'
+  | 'sad'
+  | 'angry'
+  | 'surprised'
+  | 'clap'
+
+export interface ObservationReaction {
+  id: string
+  observation_id: string
+  user_id: string
+  emoji: ReactionEmoji
+  created_at: string
+  user?: Pick<User, 'full_name'>
+}
+
 export interface Observation {
   id: string
   student_id: string
@@ -65,6 +83,7 @@ export interface Observation {
   is_alert: boolean
   author?: User
   student?: Student
+  reactions?: ObservationReaction[]
 }
 
 export interface StudentInterests {

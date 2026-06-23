@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Users, AlertTriangle, Eye, TrendingUp, TrendingDown, Sparkles, Trash2, ShieldAlert } from 'lucide-react'
 import { deleteObservation, dismissAlert } from '@/app/(dashboard)/observations/actions'
 import { SchoolYearBadge } from './SchoolYearBadge'
+import { ReactionBar, type ReactionItem } from '@/components/observations/ReactionBar'
 
 const CATEGORY_LABELS: Record<string, string> = {
   academic: 'Академическое',
@@ -58,6 +59,7 @@ interface Props {
     id: string; author_id: string; student_id: string; content: string; category: string; created_at: string; is_alert: boolean
     student?: { full_name: string; class_id?: string | null; photo_url?: string | null; class?: { name: string } | null } | null
     author?: { full_name: string } | null
+    reactions?: ReactionItem[]
   }>
   userName?: string
   classes?: Array<{ id: string; name: string }>
@@ -203,6 +205,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
                   obs={obs}
                   isLastByMe={obs.id === lastOwnObsId}
                   onDelete={handleDeleteObs}
+                  currentUserId={currentUserId}
                 />
               ))
             ) : (
@@ -370,10 +373,11 @@ function StatCard({
   )
 }
 
-function ObservationRow({ obs, isLastByMe, onDelete }: {
+function ObservationRow({ obs, isLastByMe, onDelete, currentUserId }: {
   obs: Props['recentObservations'][0]
   isLastByMe?: boolean
   onDelete?: (id: string) => void
+  currentUserId?: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const isLong = obs.content?.length > 100
@@ -411,6 +415,13 @@ function ObservationRow({ obs, isLastByMe, onDelete }: {
         <p className="text-[10px] text-gray-500 mt-0.5">
           {obs.author?.full_name ?? '—'} · {new Date(obs.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
+        {currentUserId && (
+          <ReactionBar
+            observationId={obs.id}
+            currentUserId={currentUserId}
+            initial={obs.reactions ?? []}
+          />
+        )}
       </div>
       {isLastByMe && onDelete && (
         <button

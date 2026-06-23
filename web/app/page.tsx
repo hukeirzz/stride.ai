@@ -45,7 +45,7 @@ export default async function HomePage() {
     ? supabase.from('students').select('id, full_name, risk_level, class:classes(name)').eq('class_id', classTeacherClassId).in('risk_level', ['high', 'medium']).limit(5)
     : supabase.from('students').select('id, full_name, risk_level, class:classes(name)').eq('school_id', schoolId).in('risk_level', ['high', 'medium']).limit(5)
 
-  const obsSelect = 'id, author_id, student_id, content, category, created_at, is_alert, student:students(full_name, class_id, photo_url, class:classes(name)), author:users(full_name)'
+  const obsSelect = 'id, author_id, student_id, content, category, created_at, is_alert, student:students(full_name, class_id, photo_url, class:classes(name)), author:users(full_name), reactions:observation_reactions(emoji, user_id, user:users(full_name))'
 
   const obsCountQuery = obsStudentIds.length > 0
     ? supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual').in('student_id', obsStudentIds)
@@ -128,6 +128,11 @@ export default async function HomePage() {
         class: Array.isArray(student.class) ? student.class[0] ?? null : student.class ?? null,
       } : null,
       author: Array.isArray(o.author) ? o.author[0] ?? null : o.author ?? null,
+      reactions: (o.reactions ?? []).map((r: any) => ({
+        emoji: r.emoji,
+        user_id: r.user_id,
+        user: Array.isArray(r.user) ? r.user[0] ?? null : r.user ?? null,
+      })),
     }
   })
 

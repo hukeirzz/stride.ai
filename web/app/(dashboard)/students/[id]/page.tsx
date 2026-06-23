@@ -16,7 +16,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
       .eq('id', id).single(),
     supabase.auth.getUser(),
     supabase.from('observations')
-      .select('*, author:users(full_name)')
+      .select('*, author:users(full_name), reactions:observation_reactions(emoji, user_id, user:users(full_name))')
       .eq('student_id', id).eq('source', 'manual')
       .order('created_at', { ascending: false }).limit(10),
     supabase.from('student_interests').select('*').eq('student_id', id).single(),
@@ -144,6 +144,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
         observations={observations ?? []}
         interests={interests}
         aiSummaries={aiSummaries}
+        currentUserId={user!.id}
       />
     </div>
   )
