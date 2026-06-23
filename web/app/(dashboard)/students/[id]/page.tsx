@@ -80,7 +80,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
               }
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h1 className="text-xl font-bold text-gray-900">{student.full_name}</h1>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Активен</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${

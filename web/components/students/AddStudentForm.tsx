@@ -69,7 +69,7 @@ export function AddStudentForm({ classes }: { classes: ClassItem[] }) {
         )}
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Parent name */}
         <Field label="ФИО родителя" icon={<User className="w-4 h-4" />}>
           <input
