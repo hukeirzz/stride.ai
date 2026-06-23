@@ -232,7 +232,8 @@ export function AnalyticsClient({
                 </Pie>
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                  formatter={(v: number) => [`${v} уч. (${Math.round(v / goalsTotal * 100)}%)`, '']}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any) => [`${v} уч. (${Math.round(v / goalsTotal * 100)}%)`, '']}
                 />
               </PieChart>
               <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
