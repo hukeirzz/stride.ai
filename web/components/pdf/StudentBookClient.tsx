@@ -67,7 +67,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
           <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Автоматически сформированный профиль · PDF формат</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
-          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
+          <button className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Printer className="w-4 h-4" /> Печать
           </button>
           <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
