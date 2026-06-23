@@ -3,6 +3,7 @@
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar,
 } from 'recharts'
 import { Sparkles, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,16 +32,19 @@ function initials(name: string) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+interface ParentGoal { name: string; value: number }
+
 export function AnalyticsClient({
   totalStudents, riskCount, totalObservations, alertObservations,
   departureReasons, departedTotal, schoolYear,
-  trendData, classStats, teacherStats, aiReport,
+  trendData, classStats, teacherStats, aiReport, parentGoals = [],
 }: {
   totalStudents: number; riskCount: number; totalObservations: number; alertObservations: number
   departureReasons: DepartureReason[]; departedTotal: number; schoolYear: number
   trendData: TrendDay[]
   classStats: ClassStat[]; teacherStats: TeacherStat[]
   aiReport: AiReport | null
+  parentGoals?: ParentGoal[]
 }) {
   const reasonsTotal = departureReasons.reduce((sum, r) => sum + r.value, 0)
   const maxTeacherObs = Math.max(...teacherStats.map((t) => t.obsCount), 1)
@@ -177,7 +181,7 @@ export function AnalyticsClient({
               <table className="w-full">
                 <thead className="sticky top-0">
                   <tr className="bg-gray-50/90 backdrop-blur-sm">
-                    {['Класс', 'Уч.', 'Набл.', 'Трев.', 'Риск', '14д+'].map((h) => (
+                    {['Класс', 'Уч.', 'Набл.', 'Трев.', 'Риск'].map((h) => (
                       <th key={h} className="text-left text-[11px] font-medium text-gray-400 px-3 py-2.5 first:pl-4">{h}</th>
                     ))}
                   </tr>
@@ -198,13 +202,8 @@ export function AnalyticsClient({
                           : <span className="text-xs text-gray-200">—</span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        {cls.riskCount > 0
-                          ? <span className="inline-flex items-center text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{cls.riskCount}</span>
-                          : <span className="text-xs text-gray-300">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5">
                         {cls.noObsCount > 0
-                          ? <span className="inline-flex items-center text-[10px] font-medium text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded-full">{cls.noObsCount}</span>
+                          ? <span className="inline-flex items-center text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{cls.noObsCount}</span>
                           : <span className="text-xs text-gray-300">—</span>}
                       </td>
                     </tr>
@@ -215,6 +214,34 @@ export function AnalyticsClient({
           )}
         </div>
       </div>
+
+      {/* ── Parent goals ── */}
+      {parentGoals.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900">Цели родителей</h3>
+            <span className="text-xs text-gray-400">{parentGoals.reduce((s, g) => s + g.value, 0)} ответов</span>
+          </div>
+          <ResponsiveContainer width="100%" height={Math.max(parentGoals.length * 36, 120)}>
+            <BarChart data={parentGoals} layout="vertical" margin={{ top: 0, right: 40, bottom: 0, left: 8 }}>
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={180}
+                tick={{ fontSize: 11, fill: '#6B7280' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
+                formatter={(v: number) => [`${v} уч.`, 'Количество']}
+              />
+              <Bar dataKey="value" fill="#3B82F6" radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 11, fill: '#6B7280' }} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* ── AI school report ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">

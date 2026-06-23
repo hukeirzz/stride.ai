@@ -143,6 +143,31 @@ export default async function AnalyticsPage() {
     lastObs: teacherObs30d[u.id]?.lastObs ?? null,
   })).sort((a, b) => b.obsCount - a.obsCount)
 
+  // ── Parent goals ──────────────────────────────────────────────────────────
+  const { data: parentGoalRows } = await supabase
+    .from('students')
+    .select('parent_goal')
+    .eq('school_id', schoolId)
+    .eq('status', 'active')
+    .not('parent_goal', 'is', null)
+    .neq('parent_goal', '')
+
+  const goalCounts: Record<string, number> = {}
+  for (const row of parentGoalRows ?? []) {
+    const raw = (row.parent_goal as string | null)?.trim() ?? ''
+    if (!raw) continue
+    for (const part of raw.split(/[,;\/\n]+/)) {
+      const g = part.trim()
+      if (g.length < 2) continue
+      const key = g.charAt(0).toUpperCase() + g.slice(1).toLowerCase()
+      goalCounts[key] = (goalCounts[key] ?? 0) + 1
+    }
+  }
+  const parentGoals = Object.entries(goalCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12)
+
   // ── AI school report (most recent) ───────────────────────────────────────
   const { data: aiReport } = await supabase
     .from('school_ai_reports')
@@ -171,6 +196,7 @@ export default async function AnalyticsPage() {
         classStats={classStats}
         teacherStats={teacherStats}
         aiReport={aiReport ?? null}
+        parentGoals={parentGoals}
       />
     </div>
   )
