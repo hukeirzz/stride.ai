@@ -63,8 +63,8 @@ export default async function StudentsPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Список учеников</h1>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Список учеников</h1>
         {canAddStudent && (
           <Link
             href="/students/new"
