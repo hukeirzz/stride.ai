@@ -67,10 +67,10 @@ export function StudentEditModal({ student, classes }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-200 px-2.5 py-2 sm:px-3 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0"
       >
         <Pencil className="w-3.5 h-3.5" />
-        Редактировать
+        <span className="hidden sm:inline">Редактировать</span>
       </button>
 
       {open && (
