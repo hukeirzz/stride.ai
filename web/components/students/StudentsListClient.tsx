@@ -132,16 +132,14 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
     <>
       <div className="space-y-2">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex flex-col justify-center">
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-bold text-gray-900">{totalCount}</span>
               <span className="text-sm text-gray-400">учеников</span>
             </div>
-            <div className="h-4 mt-0.5">
-              {showMinus && (
-                <span className="text-xs font-semibold text-red-500">−1 ученик удалён</span>
-              )}
-            </div>
+            {showMinus && (
+              <span className="text-xs font-semibold text-red-500 mt-0.5">−1 ученик удалён</span>
+            )}
           </div>
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
