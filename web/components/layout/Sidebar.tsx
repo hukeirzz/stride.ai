@@ -80,7 +80,7 @@ export function Sidebar({ userName = 'Пользователь', userRole = '', 
     <aside className="w-full h-full bg-white border-r border-gray-100 flex flex-col">
       {/* Logo */}
       <div className="px-5 pt-5 pb-5 border-b border-gray-100">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 group/logo">
           {/* School logo / icon */}
           <div className="relative flex-shrink-0 group">
             <div
@@ -104,7 +104,7 @@ export function Sidebar({ userName = 'Пользователь', userRole = '', 
             </div>
             {isAdmin && (
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); fileInputRef.current?.click() }}
                 disabled={uploading}
                 title="Сменить логотип школы"
                 className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -115,10 +115,10 @@ export function Sidebar({ userName = 'Пользователь', userRole = '', 
           </div>
 
           <div className="min-w-0">
-            <p className="font-bold text-gray-900 text-base leading-tight">stride.ai</p>
+            <p className="font-bold text-gray-900 text-base leading-tight group-hover/logo:text-[#2563EB] transition-colors">stride.ai</p>
             <p className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">{schoolName}</p>
           </div>
-        </div>
+        </Link>
 
         {isAdmin && (
           <input

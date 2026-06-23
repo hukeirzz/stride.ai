@@ -113,7 +113,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
   return (
     <div className="px-4 pt-4 pb-6 sm:px-8 sm:pt-5 sm:pb-8">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between mb-6 sm:mb-8 gap-2">
+      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             {getGreeting()}{userName ? `, ${userName}` : ''}!

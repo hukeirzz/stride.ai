@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
 
@@ -61,7 +62,7 @@ export function MobileShell({
           >
             <Menu className="w-[18px] h-[18px]" />
           </button>
-          <span className="font-bold text-gray-900 text-[15px]">stride.ai</span>
+          <Link href="/" className="font-bold text-gray-900 text-[15px] hover:text-[#2563EB] transition-colors">stride.ai</Link>
         </div>
 
         <main className="flex-1 overflow-auto">
