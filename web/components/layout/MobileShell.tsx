@@ -45,9 +45,10 @@ export function MobileShell({
 
       {/* Mobile sidebar drawer */}
       <div
-        className={`lg:hidden fixed top-0 left-0 h-screen w-[220px] z-50 transition-transform duration-200 ease-out shadow-xl ${
+        className={`lg:hidden fixed top-0 left-0 w-[220px] z-50 transition-transform duration-200 ease-out shadow-xl ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ height: '100dvh' }}
       >
         {sidebar}
       </div>
