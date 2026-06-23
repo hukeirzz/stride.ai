@@ -225,18 +225,20 @@ export function AnalyticsClient({
               <h3 className="text-sm font-semibold text-gray-900">Цели родителей</h3>
               <span className="text-xs text-gray-400">{goalsTotal} ответов</span>
             </div>
-            <div className="flex flex-col items-center gap-4">
-              <PieChart width={180} height={180}>
-                <Pie data={goalsWithColor} cx={90} cy={90} innerRadius={44} outerRadius={80} dataKey="value" stroke="none">
-                  {goalsWithColor.map((g, i) => <Cell key={i} fill={g.color} />)}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any) => [`${v} уч. (${Math.round(v / goalsTotal * 100)}%)`, '']}
-                />
-              </PieChart>
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div className="flex-shrink-0">
+                <PieChart width={180} height={180}>
+                  <Pie data={goalsWithColor} cx={90} cy={90} innerRadius={44} outerRadius={80} dataKey="value" stroke="none">
+                    {goalsWithColor.map((g, i) => <Cell key={i} fill={g.color} />)}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => [`${v} уч. (${Math.round(v / goalsTotal * 100)}%)`, '']}
+                  />
+                </PieChart>
+              </div>
+              <div className="w-full sm:flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                 {goalsWithColor.map((g) => (
                   <div key={g.name} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
