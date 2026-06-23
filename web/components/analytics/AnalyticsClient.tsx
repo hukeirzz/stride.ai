@@ -3,7 +3,6 @@
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
-  BarChart, Bar,
 } from 'recharts'
 import { Sparkles, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -216,32 +215,40 @@ export function AnalyticsClient({
       </div>
 
       {/* ── Parent goals ── */}
-      {parentGoals.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Цели родителей</h3>
-            <span className="text-xs text-gray-400">{parentGoals.reduce((s, g) => s + g.value, 0)} ответов</span>
+      {parentGoals.length > 0 && (() => {
+        const GOAL_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#06B6D4','#EC4899','#6366F1','#14B8A6','#F97316','#84CC16','#A855F7']
+        const goalsTotal = parentGoals.reduce((s, g) => s + g.value, 0)
+        const goalsWithColor = parentGoals.map((g, i) => ({ ...g, color: GOAL_COLORS[i % GOAL_COLORS.length] }))
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Цели родителей</h3>
+              <span className="text-xs text-gray-400">{goalsTotal} ответов</span>
+            </div>
+            <div className="flex flex-col items-center gap-4">
+              <PieChart width={180} height={180}>
+                <Pie data={goalsWithColor} cx={90} cy={90} innerRadius={44} outerRadius={80} dataKey="value" stroke="none">
+                  {goalsWithColor.map((g, i) => <Cell key={i} fill={g.color} />)}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
+                  formatter={(v: number) => [`${v} уч. (${Math.round(v / goalsTotal * 100)}%)`, '']}
+                />
+              </PieChart>
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                {goalsWithColor.map((g) => (
+                  <div key={g.name} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
+                    <span className="text-xs text-gray-700 flex-1 truncate">{g.name}</span>
+                    <span className="text-xs font-semibold text-gray-900 flex-shrink-0">{g.value}</span>
+                    <span className="text-[10px] text-gray-400 flex-shrink-0 w-8 text-right">{Math.round(g.value / goalsTotal * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={Math.max(parentGoals.length * 36, 120)}>
-            <BarChart data={parentGoals} layout="vertical" margin={{ top: 0, right: 40, bottom: 0, left: 8 }}>
-              <XAxis type="number" hide />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={180}
-                tick={{ fontSize: 11, fill: '#6B7280' }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }}
-                formatter={(v: number) => [`${v} уч.`, 'Количество']}
-              />
-              <Bar dataKey="value" fill="#3B82F6" radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 11, fill: '#6B7280' }} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── AI school report ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
