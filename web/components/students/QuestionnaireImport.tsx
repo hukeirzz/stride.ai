@@ -322,8 +322,8 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
   return (
     <div className="space-y-4">
       {/* Stats + actions */}
-      <div className="bg-white rounded-2xl border border-gray-100 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-6 flex-wrap">
+      <div className="bg-white rounded-2xl border border-gray-100 px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
           <div>
             <span className="text-xl font-bold text-gray-900">{rows.length}</span>
             <span className="text-sm text-gray-400 ml-1.5">учеников</span>
@@ -337,7 +337,7 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
             {parentMatched} из анкеты родителя
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
           <button onClick={onBack} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
             ← Назад
           </button>
@@ -345,24 +345,24 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
             onClick={() => onConfirm(rows)}
             disabled={loading}
             className={cn(
-              'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
+              'flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
               loading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
             )}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Импортируем...' : `Импортировать ${rows.length} учеников`}
+            {loading ? 'Импортируем...' : `Импортировать ${rows.length} уч.`}
           </button>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {tabs.map(([key, label, count]) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap',
               filter === key ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:text-gray-700'
             )}
           >
