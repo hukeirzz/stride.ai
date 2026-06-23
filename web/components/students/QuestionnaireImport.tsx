@@ -734,8 +734,8 @@ export function QuestionnaireImport() {
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 px-6 py-4">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white rounded-2xl border border-gray-100 px-4 sm:px-6 py-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
           {(['teacher', 'student', 'parent'] as const).map((key) => {
             const loaded = key === 'teacher' ? !!teacherRows : key === 'student' ? !!studentRows : !!parentRows
             const z = ZONES[key]
@@ -754,7 +754,7 @@ export function QuestionnaireImport() {
           onClick={handlePreview}
           disabled={!allLoaded}
           className={cn(
-            'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
+            'flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
             allLoaded
               ? 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
