@@ -33,8 +33,8 @@ const TAB_COL: Record<string, string> = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function StudentTabs({ student, observations, interests, aiSummaries, versions = [], currentUserId }: {
-  student: any; observations: any[]; interests: any; aiSummaries: AiSummaries
+export function StudentTabs({ student, observations, aiSummaries, versions = [], currentUserId }: {
+  student: any; observations: any[]; aiSummaries: AiSummaries
   versions?: VersionRow[]; currentUserId: string
 }) {
   const [active, setActive] = useState('Обзор')
@@ -66,7 +66,7 @@ export function StudentTabs({ student, observations, interests, aiSummaries, ver
 
         <div className="p-4 sm:p-6">
           {active === 'Обзор'       && <OverviewTab     student={student} observations={observations} ai={aiSummaries['overview']} />}
-          {active === 'Интересы'    && <><InterestsTab    interests={interests} ai={aiSummaries['interests']} />{historyFor('Интересы')}</>}
+          {active === 'Интересы'    && <><InterestsTab    ai={aiSummaries['interests']} />{historyFor('Интересы')}</>}
           {active === 'Успеваемость'&& <><PerformanceTab  ai={aiSummaries['performance']} />{historyFor('Успеваемость')}</>}
           {active === 'Активность'  && <><AiOnlyTab       ai={aiSummaries['activity']} />{historyFor('Активность')}</>}
           {active === 'Достижения'  && <><AiOnlyTab       ai={aiSummaries['achievements']} />{historyFor('Достижения')}</>}
@@ -197,34 +197,8 @@ function OverviewTab({ student, observations, ai }: { student: any; observations
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function InterestsTab({ interests, ai }: { interests: any; ai?: { content: string; updated_at: string } }) {
-  return (
-    <div className="space-y-4">
-      <AiBlock summary={ai} />
-      {interests ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          {[
-            { label: 'Интересы и хобби', items: interests.hobbies ?? [], color: 'bg-orange-100 text-orange-700' },
-            { label: 'Виды спорта',      items: interests.sports  ?? [], color: 'bg-green-100 text-green-700'  },
-            { label: 'Любимые предметы', items: interests.subjects ?? [], color: 'bg-blue-100 text-blue-700'   },
-          ].map(({ label, items, color }) => (
-            <div key={label} className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm font-medium text-gray-700 mb-3">{label}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(items as string[]).map((item: string) => (
-                  <span key={item} className={cn('text-xs px-2.5 py-1 rounded-full font-medium', color)}>{item}</span>
-                ))}
-                {items.length === 0 && <p className="text-xs text-gray-400">Не указано</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-gray-400 text-center py-4">Структурированные интересы не заполнены</p>
-      )}
-    </div>
-  )
+function InterestsTab({ ai }: { ai?: { content: string; updated_at: string } }) {
+  return <AiBlock summary={ai} />
 }
 
 function PerformanceTab({ ai }: { ai?: { content: string; updated_at: string } }) {

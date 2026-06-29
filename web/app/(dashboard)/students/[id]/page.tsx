@@ -155,7 +155,6 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
       <StudentTabs
         student={student}
         observations={observations ?? []}
-        interests={interests}
         aiSummaries={aiSummaries}
         versions={versions ?? []}
         currentUserId={user!.id}
