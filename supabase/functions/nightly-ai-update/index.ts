@@ -16,12 +16,18 @@ const SECTION_RU: Record<Section, string> = {
   activity: 'Активность', achievements: 'Достижения', psychology: 'Психология',
 }
 
+// UI section keys → ai_insights table columns
+const COL_BY_SECTION: Record<Section, string> = {
+  overview: 'overview', interests: 'interests', performance: 'academic',
+  activity: 'extracurricular', achievements: 'achievements', psychology: 'psychology',
+}
+
 Deno.serve(async (req) => {
   // Allow only POST from Supabase cron (or authorized caller)
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
   try {
-    // Bishkek = UTC+6. Yesterday 21:00 Bishkek = yesterday 15:00 UTC
+    // Runs nightly at 21:00 Bishkek (UTC+6) = 15:00 UTC. Pick up observations from the last 24h.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     // Fetch all manual observations added since yesterday 21:00
@@ -37,11 +43,11 @@ Deno.serve(async (req) => {
     }
 
     // Group observations by student
-    const byStudent = new Map<string, { fullName: string; obsTexts: string[] }>()
+    const byStudent = new Map<string, { fullName: string; schoolId: string; obsTexts: string[] }>()
     for (const o of newObs) {
       const student = o.students as { full_name: string; school_id: string }
       if (!byStudent.has(o.student_id)) {
-        byStudent.set(o.student_id, { fullName: student.full_name, obsTexts: [] })
+        byStudent.set(o.student_id, { fullName: student.full_name, schoolId: student.school_id, obsTexts: [] })
       }
       byStudent.get(o.student_id)!.obsTexts.push(o.content)
     }
@@ -50,16 +56,18 @@ Deno.serve(async (req) => {
 
     // Process each student in parallel
     await Promise.allSettled(
-      Array.from(byStudent.entries()).map(async ([studentId, { fullName, obsTexts }]) => {
-        // Fetch current summaries
-        const { data: currentRows } = await supabase
-          .from('student_ai_summaries')
-          .select('section, content')
+      Array.from(byStudent.entries()).map(async ([studentId, { fullName, schoolId, obsTexts }]) => {
+        // Fetch current summaries (wide ai_insights row)
+        const { data: currentRow } = await supabase
+          .from('ai_insights')
+          .select('overview, interests, academic, extracurricular, achievements, psychology')
           .eq('student_id', studentId)
+          .maybeSingle()
 
         const current: Partial<Record<Section, string>> = {}
-        for (const row of currentRows ?? []) {
-          current[row.section as Section] = row.content
+        for (const s of SECTIONS) {
+          const v = currentRow?.[COL_BY_SECTION[s] as keyof typeof currentRow] as string | null | undefined
+          if (v) current[s] = v
         }
 
         const currentText = SECTIONS
@@ -73,14 +81,14 @@ Deno.serve(async (req) => {
           max_tokens: 500,
           messages: [{
             role: 'user',
-            content: `Ты опытный классный руководитель. На основе новых наблюдений обнови только те разделы профиля ученика которые затрагивают эти наблюдения. Пиши на русском, 2-3 предложения на раздел.
+            content: `Ты опытный классный руководитель. Тебе дали текущие AI сводки по ученику и новые наблюдения учителей за сегодня. Обнови только те разделы которые затрагивают эти наблюдения. Важно: сохрани все важные детали из текущей сводки, не теряй прошлую информацию — только дополняй и уточняй. Пиши на русском, 2-3 предложения на раздел.
 
 Ученик: ${fullName}
 
-Текущие сводки:
+Текущие сводки (сохрани важное):
 ${currentText}
 
-Новые наблюдения:
+Новые наблюдения за сегодня:
 ${obsText}
 
 Разделы профиля (ключи для JSON): overview, interests, performance, activity, achievements, psychology.
@@ -94,19 +102,21 @@ ${obsText}
         const json = text.replace(/^```json\n?/, '').replace(/\n?```$/, '')
         const updates = JSON.parse(json) as Partial<Record<Section, string>>
 
-        const rows = Object.entries(updates)
-          .filter(([k]) => SECTIONS.includes(k as Section))
-          .map(([section, content]) => ({
-            student_id: studentId,
-            section,
-            content,
-            updated_at: new Date().toISOString(),
-          }))
+        // Map section keys → ai_insights columns; only keep recognised sections
+        const colUpdates: Record<string, string> = {}
+        for (const [section, content] of Object.entries(updates)) {
+          if (SECTIONS.includes(section as Section) && content) {
+            colUpdates[COL_BY_SECTION[section as Section]] = content
+          }
+        }
 
-        if (rows.length > 0) {
+        if (Object.keys(colUpdates).length > 0) {
           await supabase
-            .from('student_ai_summaries')
-            .upsert(rows, { onConflict: 'student_id,section' })
+            .from('ai_insights')
+            .upsert(
+              { student_id: studentId, school_id: schoolId, ...colUpdates, generated_at: new Date().toISOString() },
+              { onConflict: 'student_id' },
+            )
           updatedStudents++
         }
       })

@@ -12,7 +12,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
   // Batch 1: student + auth + queries that only need student id
   const [{ data: student }, { data: { user } }, { data: observations }, { data: interests }, { data: aiInsight }] = await Promise.all([
     supabase.from('students')
-      .select('id, school_id, class_id, full_name, photo_url, parent_name, parent_phone, risk_level, status, goals, created_at, family_situation, health_status, dream, parent_goal, class:classes(name)')
+      .select('id, school_id, class_id, full_name, photo_url, parent_name, parent_phone, risk_level, status, goals, created_at, family_situation, health_status, dream, parent_goal, enrollment_year, class:classes(name)')
       .eq('id', id).single(),
     supabase.auth.getUser(),
     supabase.from('observations')
@@ -109,6 +109,12 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
                     parent_phone: student.parent_phone,
                     photo_url: student.photo_url,
                     class_id: student.class_id,
+                    goals: student.goals,
+                    dream: student.dream,
+                    parent_goal: student.parent_goal,
+                    family_situation: student.family_situation,
+                    health_status: student.health_status,
+                    enrollment_year: student.enrollment_year,
                   }}
                   classes={classes ?? []}
                 />

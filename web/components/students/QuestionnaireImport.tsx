@@ -21,7 +21,7 @@ interface StudentRow  {
 }
 interface ParentRow   {
   full_name: string; class_name: string; parent_name: string; parent_phone: string
-  family_situation: string; health_status: string; parent_goal: string
+  family_situation: string; health_status: string; parent_goal: string; enrollment_year: string
   emotional: string; interests: string; career: string; study_home: string
   communication: string; obstacles: string; reaction_criticism: string; motivation_score: string
 }
@@ -112,6 +112,7 @@ const parseParent = (buf: ArrayBuffer): ParentRow[] =>
     family_situation:    (r['Семейная обстановка'] ?? '').toString().trim(),
     health_status:       (r['Состояние здоровья ребёнка'] ?? '').toString().trim(),
     parent_goal:         (r['Какова ваша главная цель для ребёнка? (можно несколько)'] ?? r['Какова ваша главная цель для ребёнка?'] ?? '').toString().trim(),
+    enrollment_year:     (r['В каком году ваш ребёнок поступил в нашу школу?'] ?? '').toString().trim(),
     emotional:           (r['Эмоциональное состояние ребёнка в последнее время'] ?? '').toString().trim(),
     interests:           (r['Какие интересы есть у вашего ребёнка?'] ?? '').toString().trim(),
     career:              (r['К какой профессии или направлении стремится ребёнок?'] ?? '').toString().trim(),
@@ -217,6 +218,7 @@ function mergeRows(teachers: TeacherRow[], students: StudentRow[], parents: Pare
       family_situation: p?.family_situation ?? '',
       health_status:    p?.health_status ?? '',
       parent_goal:      p?.parent_goal ?? '',
+      enrollment_year:  p?.enrollment_year ?? '',
       dream:            s?.dream ?? '',
       goals:            goalsArr,
       teacher_notes:    lines.length ? `[Анкета учителя]\n${lines.join('\n')}` : '',
@@ -267,6 +269,7 @@ function applyParentData(row: PreviewRow, p: ParentRow): PreviewRow {
     family_situation: p.family_situation,
     health_status:    p.health_status,
     parent_goal:      p.parent_goal,
+    enrollment_year:  p.enrollment_year,
     teacher_notes: [row.teacher_notes, ...extra].filter(Boolean).join('\n'),
     _hasParent: true,
     _parentKey: p.full_name,

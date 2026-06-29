@@ -3,17 +3,28 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+export interface StudentEditFields {
+  full_name: string
+  parent_name: string
+  parent_phone: string
+  class_id: string
+  goals: string[]
+  dream: string
+  parent_goal: string
+  family_situation: string
+  health_status: string
+  enrollment_year: string
+}
+
 export async function updateStudent(
   studentId: string,
-  full_name: string,
-  parent_name: string,
-  parent_phone: string,
-  class_id: string,
+  fields: StudentEditFields,
   photoFile?: FormData,
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не авторизован' }
+  if (!fields.full_name.trim()) return { error: 'Введите ФИО' }
 
   let photo_url: string | undefined
 
@@ -38,7 +49,18 @@ export async function updateStudent(
     }
   }
 
-  const update: Record<string, string> = { full_name, parent_name, parent_phone, class_id }
+  const update: Record<string, unknown> = {
+    full_name:        fields.full_name.trim(),
+    parent_name:      fields.parent_name.trim() || null,
+    parent_phone:     fields.parent_phone.trim() || null,
+    class_id:         fields.class_id || null,
+    goals:            fields.goals,
+    dream:            fields.dream.trim() || null,
+    parent_goal:      fields.parent_goal.trim() || null,
+    family_situation: fields.family_situation.trim() || null,
+    health_status:    fields.health_status.trim() || null,
+    enrollment_year:  fields.enrollment_year.trim() || null,
+  }
   if (photo_url) update.photo_url = photo_url
 
   const { error } = await supabase

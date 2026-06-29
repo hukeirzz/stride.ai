@@ -70,6 +70,7 @@ interface QuestionnaireRow {
   family_situation: string
   health_status: string
   parent_goal: string
+  enrollment_year: string
   dream: string
   goals: string[]
   teacher_notes: string
@@ -159,6 +160,7 @@ export async function importFromQuestionnaires(rows: QuestionnaireRow[]): Promis
     family_situation: r.family_situation?.trim() || null,
     health_status:    r.health_status?.trim()    || null,
     parent_goal:      r.parent_goal?.trim()      || null,
+    enrollment_year:  r.enrollment_year?.trim()  || null,
     dream:            r.dream?.trim()             || null,
     ...extra,
   })
@@ -228,11 +230,17 @@ export async function importFromQuestionnaires(rows: QuestionnaireRow[]): Promis
 
     const obsMap = Object.fromEntries((questObs ?? []).map(o => [o.student_id as string, o.content as string]))
 
+    // Only generate summaries for students that don't already have one. This preserves
+    // summaries already enriched by manual observations (re-import must not reset them).
+    const { data: existingInsights } = await db
+      .from('ai_insights').select('student_id').in('student_id', allStudentIds)
+    const hasInsights = new Set((existingInsights ?? []).map(r => r.student_id as string))
+
     await Promise.allSettled(
       validRows.map(async (r) => {
         const studentId = nameToId[norm(r.full_name)]
         const content = studentId ? obsMap[studentId] : undefined
-        if (!studentId || !content) return
+        if (!studentId || !content || hasInsights.has(studentId)) return
 
         const summaries = await generateInitialSummaries(r.full_name.trim(), content)
         if (!summaries) return

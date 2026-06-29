@@ -96,6 +96,7 @@ function OverviewTab({ student, observations, ai }: { student: any; observations
 
   const briefRows: [string, string | number][] = [
     ['Наблюдений',         observations.length],
+    ['Год поступления',    student.enrollment_year || '—'],
     ['Цель ученика',       goalsText               || '—'],
     ['Мечта',              student.dream           || '—'],
     ['Цель родителя',      student.parent_goal     || '—'],
@@ -232,6 +233,42 @@ function ObsRow({ obs, currentUserId }: { obs: any; currentUserId: string }) {
   )
 }
 
+// Mobile card — table columns don't fit narrow screens, so stack the fields instead.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ObsCard({ obs, currentUserId }: { obs: any; currentUserId: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = obs.content?.length > 120
+
+  return (
+    <div className="px-4 py-3.5 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-gray-500">
+          {new Date(obs.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })}
+        </span>
+        {obs.is_alert
+          ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium flex-shrink-0">Тревога</span>
+          : <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium flex-shrink-0">Норма</span>
+        }
+      </div>
+      <span className={cn('inline-block text-[10px] px-2 py-0.5 rounded-full font-medium', CATEGORY_COLORS[obs.category] ?? 'bg-gray-100 text-gray-600')}>
+        {CATEGORY_LABELS[obs.category] ?? obs.category}
+      </span>
+      <p className={cn('text-xs text-gray-700 leading-relaxed', !expanded && isLong && 'line-clamp-3')}>{obs.content}</p>
+      {isLong && (
+        <button onClick={() => setExpanded(p => !p)} className="text-[10px] text-blue-500 hover:text-blue-700">
+          {expanded ? 'Свернуть' : 'Раскрыть'}
+        </button>
+      )}
+      <ReactionBar
+        observationId={obs.id}
+        currentUserId={currentUserId}
+        initial={obs.reactions ?? []}
+      />
+      <p className="text-[10px] text-gray-400 pt-0.5">{obs.author?.full_name ?? '—'}</p>
+    </div>
+  )
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ObservationsTable({ observations, currentUserId }: { observations: any[]; currentUserId: string }) {
   return (
@@ -240,7 +277,16 @@ function ObservationsTable({ observations, currentUserId }: { observations: any[
         <h2 className="text-sm font-semibold text-gray-900">Наблюдения</h2>
         <span className="text-xs text-gray-400">{observations.length} записей</span>
       </div>
-      <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+      {/* Mobile: stacked cards */}
+      <div className="sm:hidden max-h-[400px] overflow-y-auto divide-y divide-gray-50">
+        {observations.map((obs) => <ObsCard key={obs.id} obs={obs} currentUserId={currentUserId} />)}
+        {observations.length === 0 && (
+          <p className="text-center text-sm text-gray-400 py-10">Наблюдений пока нет</p>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden sm:block max-h-[400px] overflow-y-auto overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50/60 border-b border-gray-100">

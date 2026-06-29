@@ -12,7 +12,7 @@ export default async function StaffPage() {
   const { data: profile } = await supabase
     .from('users').select('school_id, role').eq('id', user!.id).single()
 
-  const [{ data: staff }, { data: classes }, { data: obsCounts }] = await Promise.all([
+  const [{ data: staff }, { data: classes }] = await Promise.all([
     supabase
       .from('users')
       .select('id, full_name, email, role, class_id')
@@ -21,8 +21,23 @@ export default async function StaffPage() {
     supabase
       .from('classes').select('id, name, grade, letter')
       .eq('school_id', profile?.school_id ?? '').order('name'),
-    supabase.rpc('get_observation_counts_by_author', { p_school_id: profile?.school_id ?? '' }),
   ])
+
+  // Count only manually-entered observations per author. Questionnaire-imported
+  // observations are excluded so this matches the dashboard feed and stats, which
+  // also filter source='manual' — and so the count drops when a teacher deletes one.
+  const staffIds = (staff ?? []).map((s: any) => s.id)
+  const obsCount = new Map<string, number>()
+  if (staffIds.length > 0) {
+    const { data: obsRows } = await supabase
+      .from('observations')
+      .select('author_id')
+      .eq('source', 'manual')
+      .in('author_id', staffIds)
+    for (const r of (obsRows ?? []) as { author_id: string }[]) {
+      obsCount.set(r.author_id, (obsCount.get(r.author_id) ?? 0) + 1)
+    }
+  }
 
   const ACCESS_MATRIX = [
     { label: 'Все наблюдения',        admin: true, deputy: true, teacher: true, class_teacher: true, psychologist: true, nurse: true, security: true, manager: true },
@@ -59,7 +74,7 @@ export default async function StaffPage() {
             role: s.role,
             class_name: (classes ?? []).find((c) => c.id === s.class_id)?.name ?? null,
             class_id: s.class_id ?? null,
-            obs_count: (obsCounts as any[])?.find((o) => o.author_id === s.id)?.observation_count ?? 0,
+            obs_count: obsCount.get(s.id) ?? 0,
           }))}
           classes={classes ?? []}
           currentUserId={user!.id}
