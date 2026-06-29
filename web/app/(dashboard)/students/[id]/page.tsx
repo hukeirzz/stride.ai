@@ -27,6 +27,13 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
 
   if (!student) notFound()
 
+  // История версий ИИ-сводок (для просмотра прошлых сводок по разделам)
+  const { data: versions } = await supabase
+    .from('ai_insight_versions')
+    .select('section, content, created_at')
+    .eq('student_id', id)
+    .order('created_at', { ascending: false })
+
   // Batch 2: queries that need student.school_id / student.class_id / user.id
   const [{ data: classes }, classTeacherRes, { data: currentUser }] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', student.school_id).order('name'),
@@ -150,6 +157,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
         observations={observations ?? []}
         interests={interests}
         aiSummaries={aiSummaries}
+        versions={versions ?? []}
         currentUserId={user!.id}
       />
     </div>

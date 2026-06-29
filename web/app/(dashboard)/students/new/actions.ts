@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { generateInitialSummaries } from '@/lib/ai/student-summaries'
+import { generateInitialSummaries, NO_DATA } from '@/lib/ai/student-summaries'
 
 export async function addStudent(_: unknown, formData: FormData) {
   const supabase = await createClient()
@@ -249,6 +249,12 @@ export async function importFromQuestionnaires(rows: QuestionnaireRow[]): Promis
           { student_id: studentId, school_id: schoolId, ...summaries },
           { onConflict: 'student_id' }
         )
+
+        // История версий сводок (кроме «Обзора» и пустых разделов)
+        const versionRows = Object.entries(summaries)
+          .filter(([k, v]) => k !== 'overview' && k !== 'generated_at' && typeof v === 'string' && v && v !== NO_DATA)
+          .map(([section, content]) => ({ student_id: studentId, school_id: schoolId, section, content: content as string }))
+        if (versionRows.length > 0) await db.from('ai_insight_versions').insert(versionRows)
       })
     )
   }

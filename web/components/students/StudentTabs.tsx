@@ -21,11 +21,28 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 type AiSummaries = Record<string, { content: string; updated_at: string } | undefined>
 
+interface VersionRow { section: string; content: string; created_at: string }
+
+// UI-вкладка → имя колонки/раздела в ai_insights (для истории). «Обзор» истории не имеет.
+const TAB_COL: Record<string, string> = {
+  Интересы: 'interests',
+  Успеваемость: 'academic',
+  Активность: 'extracurricular',
+  Достижения: 'achievements',
+  Психология: 'psychology',
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function StudentTabs({ student, observations, interests, aiSummaries, currentUserId }: {
-  student: any; observations: any[]; interests: any; aiSummaries: AiSummaries; currentUserId: string
+export function StudentTabs({ student, observations, interests, aiSummaries, versions = [], currentUserId }: {
+  student: any; observations: any[]; interests: any; aiSummaries: AiSummaries
+  versions?: VersionRow[]; currentUserId: string
 }) {
   const [active, setActive] = useState('Обзор')
+
+  // История версий, сгруппированная по разделу (новые сверху — порядок задаёт запрос)
+  const versionsByCol: Record<string, VersionRow[]> = {}
+  for (const v of versions) (versionsByCol[v.section] ??= []).push(v)
+  const historyFor = (tab: string) => <SummaryHistory versions={versionsByCol[TAB_COL[tab]] ?? []} />
 
   return (
     <div className="space-y-4">
@@ -49,15 +66,41 @@ export function StudentTabs({ student, observations, interests, aiSummaries, cur
 
         <div className="p-4 sm:p-6">
           {active === 'Обзор'       && <OverviewTab     student={student} observations={observations} ai={aiSummaries['overview']} />}
-          {active === 'Интересы'    && <InterestsTab    interests={interests} ai={aiSummaries['interests']} />}
-          {active === 'Успеваемость'&& <PerformanceTab  ai={aiSummaries['performance']} />}
-          {active === 'Активность'  && <AiOnlyTab       ai={aiSummaries['activity']} />}
-          {active === 'Достижения'  && <AiOnlyTab       ai={aiSummaries['achievements']} />}
-          {active === 'Психология'  && <AiOnlyTab       ai={aiSummaries['psychology']} />}
+          {active === 'Интересы'    && <><InterestsTab    interests={interests} ai={aiSummaries['interests']} />{historyFor('Интересы')}</>}
+          {active === 'Успеваемость'&& <><PerformanceTab  ai={aiSummaries['performance']} />{historyFor('Успеваемость')}</>}
+          {active === 'Активность'  && <><AiOnlyTab       ai={aiSummaries['activity']} />{historyFor('Активность')}</>}
+          {active === 'Достижения'  && <><AiOnlyTab       ai={aiSummaries['achievements']} />{historyFor('Достижения')}</>}
+          {active === 'Психология'  && <><AiOnlyTab       ai={aiSummaries['psychology']} />{historyFor('Психология')}</>}
         </div>
       </div>
 
       <ObservationsTable observations={observations} currentUserId={currentUserId} />
+    </div>
+  )
+}
+
+// История прошлых версий ИИ-сводки раздела (текущая версия показана выше в AiBlock).
+function SummaryHistory({ versions }: { versions: VersionRow[] }) {
+  const [open, setOpen] = useState(false)
+  if (versions.length <= 1) return null // только текущая версия — истории ещё нет
+  const past = versions.slice(1) // versions идут от новых к старым; [0] — текущая
+  return (
+    <div className="mt-5 pt-4 border-t border-gray-100">
+      <button onClick={() => setOpen(o => !o)} className="text-xs text-blue-500 hover:text-blue-700">
+        {open ? 'Скрыть прошлые сводки' : `Прошлые сводки (${past.length})`}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {past.map((v, i) => (
+            <div key={`${v.created_at}-${i}`} className="bg-gray-50 rounded-lg p-2.5">
+              <p className="text-[10px] text-gray-400 mb-1">
+                {new Date(v.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+              <p className="text-xs text-gray-600 whitespace-pre-line">{v.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
