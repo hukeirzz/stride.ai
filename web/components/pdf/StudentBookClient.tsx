@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { Download, Printer, Share2, BookOpen, X } from 'lucide-react'
+import { Download, Printer, Share2, BookOpen, X, Loader2 } from 'lucide-react'
+import { getStudentBookData } from '@/app/(dashboard)/student-book/actions'
 
 
 
@@ -10,13 +11,10 @@ interface ClassItem { id: string; name: string }
 interface StudentItem { id: string; full_name: string; class_id: string; photo_url?: string | null }
 
 const CONTENTS = [
-  'Общая информация',
-  'Академическая успеваемость',
-  'Сильные стороны',
-  'Зоны роста',
-  'Достижения',
-  'Рекомендации',
-  'Заметки для родителей',
+  'Обложка',
+  'Общий профиль и цели',
+  'Аналитические сводки по разделам',
+  'Наблюдения учителей',
 ]
 
 function formatDate() {
@@ -28,6 +26,8 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
   const [studentId, setStudentId] = useState('')
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState('')
   const comboRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -58,6 +58,31 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     setOpen(false)
   }
 
+  async function handleGenerate() {
+    if (!studentId || !selectedStudent || generating) return
+    setGenerating(true)
+    setGenError('')
+    try {
+      const res = await getStudentBookData(studentId)
+      if (res.error || !res.data) { setGenError(res.error ?? 'Не удалось получить данные'); return }
+      const { generateBookBlob } = await import('@/lib/pdf/StudentBookDocument')
+      const blob = await generateBookBlob(res.data)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Книга ученика — ${selectedStudent.full_name}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+      setGenError('Не удалось сформировать PDF')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -73,8 +98,13 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
           <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Share2 className="w-4 h-4" /> Поделиться
           </button>
-          <button className="flex items-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-3 py-2 sm:px-4 rounded-lg transition-colors whitespace-nowrap">
-            <Download className="w-4 h-4" /> Скачать PDF
+          <button
+            onClick={handleGenerate}
+            disabled={!studentId || generating}
+            className="flex items-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-3 py-2 sm:px-4 rounded-lg transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {generating ? 'Формируем…' : 'Скачать PDF'}
           </button>
         </div>
       </div>
@@ -128,10 +158,11 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
           </div>
           <div className="flex items-center gap-3">
             <button
-              disabled={!studentId}
+              onClick={handleGenerate}
+              disabled={!studentId || generating}
               className="flex-1 sm:flex-none px-4 py-2 sm:py-1.5 bg-[#2563EB] text-white rounded-lg text-sm font-medium hover:bg-[#1D4ED8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Создать
+              {generating ? 'Формируем…' : 'Создать PDF'}
             </button>
             {selectedStudent && (
               <span className="text-xs text-gray-400 whitespace-nowrap">
@@ -141,6 +172,10 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
           </div>
         </div>
       </div>
+
+      {genError && (
+        <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl">{genError}</p>
+      )}
 
       {/* Main: book + contents */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

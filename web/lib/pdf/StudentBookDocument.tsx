@@ -1,0 +1,275 @@
+/* eslint-disable jsx-a11y/alt-text */
+import {
+  Document, Page, View, Text, Image, StyleSheet, Font, pdf,
+} from '@react-pdf/renderer'
+import type { BookData } from './types'
+
+// ── Шрифт с кириллицей (PT Sans) ───────────────────────────────────────────────
+Font.register({
+  family: 'PTSans',
+  fonts: [
+    { src: '/fonts/PTSans-Regular.ttf', fontWeight: 'normal' },
+    { src: '/fonts/PTSans-Bold.ttf', fontWeight: 'bold' },
+  ],
+})
+// Отключаем перенос по слогам — для русского аккуратнее переносить по словам.
+Font.registerHyphenationCallback((word) => [word])
+
+// ── Палитра ─────────────────────────────────────────────────────────────────────
+const NAVY = '#1E3A6E'
+const BLUE = '#2563EB'
+const INK = '#1F2937'
+const GRAY = '#6B7280'
+const MUTED = '#9CA3AF'
+const LINE = '#E5E7EB'
+const SOFT = '#F3F6FC'
+
+const CAT: Record<string, { label: string; color: string }> = {
+  academic:   { label: 'Академическое', color: '#2563EB' },
+  behavior:   { label: 'Поведение',     color: '#CA8A04' },
+  psychology: { label: 'Психология',    color: '#7C3AED' },
+  sport:      { label: 'Спорт',         color: '#16A34A' },
+  creative:   { label: 'Творчество',    color: '#EA580C' },
+  health:     { label: 'Здоровье',      color: '#DC2626' },
+  social:     { label: 'Социальное',    color: '#0D9488' },
+}
+const cat = (k: string) => CAT[k] ?? { label: k, color: GRAY }
+const RISK: Record<string, string> = { none: 'Норма', medium: 'Средний риск', high: 'Высокий риск' }
+
+const styles = StyleSheet.create({
+  page: { fontFamily: 'PTSans', fontSize: 10, color: INK, paddingTop: 48, paddingBottom: 56, paddingHorizontal: 44, lineHeight: 1.45 },
+
+  // header / footer
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: LINE },
+  brand: { fontSize: 13, fontWeight: 'bold', color: NAVY },
+  brandDot: { color: BLUE },
+  headerTitle: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: 1 },
+  footer: { position: 'absolute', bottom: 26, left: 44, right: 44, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: LINE, paddingTop: 8 },
+  footerText: { fontSize: 8, color: MUTED },
+
+  // section
+  sectionTitle: { fontSize: 12, fontWeight: 'bold', color: NAVY, marginBottom: 8 },
+  block: { marginBottom: 18 },
+
+  card: { backgroundColor: SOFT, borderRadius: 8, padding: 12, marginBottom: 10 },
+  cardTitle: { fontSize: 10, fontWeight: 'bold', color: BLUE, marginBottom: 4 },
+  cardBody: { fontSize: 10, color: INK },
+  muted: { color: MUTED },
+
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: LINE },
+  rowLabel: { fontSize: 10, color: GRAY },
+  rowValue: { fontSize: 10, color: INK, fontWeight: 'bold', maxWidth: '62%', textAlign: 'right' },
+
+  twoCol: { flexDirection: 'row', gap: 16 },
+  col: { flex: 1 },
+
+  // cover
+  cover: { fontFamily: 'PTSans', backgroundColor: NAVY, color: '#FFFFFF', paddingHorizontal: 52, paddingVertical: 56, height: '100%' },
+  coverBrand: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
+  coverTitle: { fontSize: 40, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.05, marginTop: 36 },
+  coverYear: { fontSize: 13, color: '#9DB6E8', marginTop: 10 },
+  coverPhotoWrap: { alignItems: 'center', marginTop: 'auto' },
+  coverPhoto: { width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#FFFFFF', objectFit: 'cover' },
+  coverPhotoFallback: { width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#FFFFFF', backgroundColor: '#3B6FD4', alignItems: 'center', justifyContent: 'center' },
+  coverInitials: { fontSize: 40, fontWeight: 'bold', color: '#FFFFFF' },
+  coverName: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginTop: 18, textAlign: 'center' },
+  coverSub: { fontSize: 11, color: '#9DB6E8', marginTop: 6, textAlign: 'center' },
+  coverFooter: { marginTop: 'auto', flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#33508A', paddingTop: 12 },
+  coverFootText: { fontSize: 9, color: '#9DB6E8' },
+
+  // observations
+  obs: { flexDirection: 'row', marginBottom: 12 },
+  obsRail: { width: 3, borderRadius: 2, marginRight: 10 },
+  obsBody: { flex: 1 },
+  obsTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 3, gap: 6 },
+  chip: { fontSize: 8, color: '#FFFFFF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  alertChip: { fontSize: 8, color: '#DC2626', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  obsDate: { fontSize: 9, color: MUTED },
+  obsText: { fontSize: 10, color: INK },
+  obsAuthor: { fontSize: 8, color: MUTED, marginTop: 2 },
+
+  // bar chart
+  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  barLabel: { width: 110, fontSize: 9, color: GRAY },
+  barTrack: { flex: 1, height: 10, backgroundColor: '#EEF2F7', borderRadius: 5 },
+  barFill: { height: 10, borderRadius: 5 },
+  barCount: { width: 22, fontSize: 9, color: INK, textAlign: 'right', fontWeight: 'bold' },
+})
+
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
+function Header({ title }: { title: string }) {
+  return (
+    <View style={styles.header} fixed>
+      <Text style={styles.brand}>stride<Text style={styles.brandDot}>.ai</Text></Text>
+      <Text style={styles.headerTitle}>{title}</Text>
+    </View>
+  )
+}
+
+function Footer() {
+  return (
+    <View style={styles.footer} fixed>
+      <Text style={styles.footerText}>stride.ai · Платформа аналитики ученика</Text>
+      <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    </View>
+  )
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  )
+}
+
+function SummaryCard({ title, text }: { title: string; text: string | null }) {
+  return (
+    <View style={styles.card} wrap={false}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={text ? styles.cardBody : [styles.cardBody, styles.muted]}>{text ?? 'Данных пока недостаточно.'}</Text>
+    </View>
+  )
+}
+
+export function StudentBookDocument({ data }: { data: BookData }) {
+  const hasAnySummary = Object.values(data.summaries).some(Boolean)
+  const maxCount = Math.max(1, ...data.categoryCounts.map(c => c.count))
+
+  return (
+    <Document title={`Книга ученика — ${data.fullName}`} author="stride.ai">
+      {/* ── Обложка ── */}
+      <Page size="A4" style={styles.cover}>
+        <Text style={styles.coverBrand}>stride.ai</Text>
+        <Text style={styles.coverTitle}>Книга{'\n'}ученика</Text>
+        <Text style={styles.coverYear}>{data.schoolYear}–{data.schoolYear + 1} учебный год</Text>
+
+        <View style={styles.coverPhotoWrap}>
+          {data.photoUrl
+            ? <Image style={styles.coverPhoto} src={data.photoUrl} />
+            : <View style={styles.coverPhotoFallback}><Text style={styles.coverInitials}>{initials(data.fullName)}</Text></View>}
+          <Text style={styles.coverName}>{data.fullName}</Text>
+          <Text style={styles.coverSub}>
+            {data.className} класс{data.schoolName ? `  ·  ${data.schoolName}` : ''}
+          </Text>
+        </View>
+
+        <View style={styles.coverFooter}>
+          <Text style={styles.coverFootText}>Профиль развития ученика</Text>
+          <Text style={styles.coverFootText}>Сформировано {data.generatedAt}</Text>
+        </View>
+      </Page>
+
+      {/* ── Общий профиль ── */}
+      <Page size="A4" style={styles.page}>
+        <Header title="Общий профиль" />
+
+        <View style={styles.twoCol}>
+          <View style={styles.col}>
+            <Text style={styles.sectionTitle}>Личные данные</Text>
+            <Field label="Класс" value={`${data.className}`} />
+            <Field label="Год поступления" value={data.enrollmentYear ?? '—'} />
+            <Field label="Статус" value={data.status === 'active' ? 'Активен' : 'Неактивен'} />
+            <Field label="Уровень риска" value={RISK[data.riskLevel] ?? '—'} />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.sectionTitle}>Контакты родителей</Text>
+            <Field label="ФИО родителя" value={data.parentName ?? '—'} />
+            <Field label="Телефон" value={data.parentPhone ?? '—'} />
+          </View>
+        </View>
+
+        <View style={[styles.block, { marginTop: 18 }]}>
+          <Text style={styles.sectionTitle}>Цели и стремления</Text>
+          <Field label="Цель ученика" value={data.goals.length ? data.goals.join('; ') : '—'} />
+          <Field label="Мечта" value={data.dream ?? '—'} />
+          <Field label="Цель родителя" value={data.parentGoal ?? '—'} />
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Семья и здоровье</Text>
+          <Field label="Семейная обстановка" value={data.familySituation ?? '—'} />
+          <Field label="Состояние здоровья" value={data.healthStatus ?? '—'} />
+        </View>
+
+        {data.summaries.overview && (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>Общая характеристика</Text>
+            <View style={styles.card}>
+              <Text style={styles.cardBody}>{data.summaries.overview}</Text>
+            </View>
+          </View>
+        )}
+
+        <Footer />
+      </Page>
+
+      {/* ── AI-профиль по разделам ── */}
+      <Page size="A4" style={styles.page}>
+        <Header title="Профиль по разделам" />
+        <Text style={styles.sectionTitle}>Аналитические сводки</Text>
+        {hasAnySummary ? (
+          <>
+            <SummaryCard title="Интересы и увлечения" text={data.summaries.interests} />
+            <SummaryCard title="Успеваемость" text={data.summaries.academic} />
+            <SummaryCard title="Внеурочная активность" text={data.summaries.extracurricular} />
+            <SummaryCard title="Достижения" text={data.summaries.achievements} />
+            <SummaryCard title="Психологический портрет" text={data.summaries.psychology} />
+          </>
+        ) : (
+          <Text style={styles.muted}>Аналитические сводки ещё не сформированы.</Text>
+        )}
+        <Footer />
+      </Page>
+
+      {/* ── Наблюдения учителей ── */}
+      <Page size="A4" style={styles.page}>
+        <Header title="Наблюдения учителей" />
+
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Сводка по категориям</Text>
+          <Text style={{ fontSize: 9, color: GRAY, marginBottom: 8 }}>Всего наблюдений: {data.observationsTotal}</Text>
+          {data.categoryCounts.length ? data.categoryCounts.map(c => (
+            <View style={styles.barRow} key={c.category}>
+              <Text style={styles.barLabel}>{cat(c.category).label}</Text>
+              <View style={styles.barTrack}>
+                <View style={[styles.barFill, { width: `${(c.count / maxCount) * 100}%`, backgroundColor: cat(c.category).color }]} />
+              </View>
+              <Text style={styles.barCount}>{c.count}</Text>
+            </View>
+          )) : <Text style={styles.muted}>Наблюдений пока нет.</Text>}
+        </View>
+
+        {data.observations.length > 0 && (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>Хронология</Text>
+            {data.observations.map((o, i) => (
+              <View style={styles.obs} key={i} wrap={false}>
+                <View style={[styles.obsRail, { backgroundColor: cat(o.category).color }]} />
+                <View style={styles.obsBody}>
+                  <View style={styles.obsTop}>
+                    <Text style={styles.obsDate}>{o.date}</Text>
+                    <Text style={[styles.chip, { backgroundColor: cat(o.category).color }]}>{cat(o.category).label}</Text>
+                    {o.isAlert && <Text style={styles.alertChip}>Тревога</Text>}
+                  </View>
+                  <Text style={styles.obsText}>{o.content}</Text>
+                  <Text style={styles.obsAuthor}>{o.author}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Footer />
+      </Page>
+    </Document>
+  )
+}
+
+export async function generateBookBlob(data: BookData): Promise<Blob> {
+  return await pdf(<StudentBookDocument data={data} />).toBlob()
+}
