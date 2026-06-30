@@ -18,28 +18,30 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { uploadSchoolLogo } from '@/app/actions/school'
+import { useI18n } from '@/lib/i18n/I18nProvider'
+import { LanguageToggle } from './LanguageToggle'
 
 type Role = 'admin' | 'deputy' | 'teacher' | 'class_teacher' | 'psychologist' | 'nurse' | 'security' | 'manager'
 
-const NAV_ITEMS: { label: string; href: string; icon: React.ElementType; roles: Role[] }[] = [
-  { label: 'Главная',             href: '/',                  icon: LayoutDashboard, roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
-  { label: 'Ученики',             href: '/students',           icon: Users,           roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
-  { label: 'Сотрудники',          href: '/staff',              icon: UserCog,         roles: ['admin'] },
-  { label: 'Книга ученика',       href: '/student-book',       icon: BookOpen,        roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','manager'] },
-  { label: 'Аналитика школы',     href: '/analytics',          icon: BarChart2,       roles: ['admin','deputy','manager'] },
-  { label: 'Добавить наблюдение', href: '/observations/new',   icon: PlusCircle,      roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
+const NAV_ITEMS: { labelKey: string; href: string; icon: React.ElementType; roles: Role[] }[] = [
+  { labelKey: 'nav.home',           href: '/',                  icon: LayoutDashboard, roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
+  { labelKey: 'nav.students',       href: '/students',           icon: Users,           roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
+  { labelKey: 'nav.staff',          href: '/staff',              icon: UserCog,         roles: ['admin'] },
+  { labelKey: 'nav.book',           href: '/student-book',       icon: BookOpen,        roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','manager'] },
+  { labelKey: 'nav.analytics',      href: '/analytics',          icon: BarChart2,       roles: ['admin','deputy','manager'] },
+  { labelKey: 'nav.addObservation', href: '/observations/new',   icon: PlusCircle,      roles: ['admin','deputy','teacher','class_teacher','psychologist','nurse','security','manager'] },
 ]
 
 interface SidebarProps {
   userName?: string
-  userRole?: string
   userRoleKey?: string
   schoolName?: string
   schoolLogoUrl?: string | null
   isAdmin?: boolean
 }
 
-export function Sidebar({ userName = 'Пользователь', userRole = '', userRoleKey = '', schoolName = 'Stride', schoolLogoUrl, isAdmin = false }: SidebarProps) {
+export function Sidebar({ userName = 'Пользователь', userRoleKey = '', schoolName = 'Stride', schoolLogoUrl, isAdmin = false }: SidebarProps) {
+  const { t } = useI18n()
   const visibleItems = NAV_ITEMS.filter(item =>
     !userRoleKey || item.roles.includes(userRoleKey as Role)
   )
@@ -139,14 +141,14 @@ export function Sidebar({ userName = 'Пользователь', userRole = '', 
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
-            <p className="text-[11px] text-gray-400 truncate">{userRole}</p>
+            <p className="text-[11px] text-gray-400 truncate">{userRoleKey ? t('role.' + userRoleKey) : ''}</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-0.5">
-        {visibleItems.map(({ label, href, icon: Icon }) => {
+        {visibleItems.map(({ labelKey, href, icon: Icon }) => {
           const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
           return (
             <Link
@@ -160,20 +162,21 @@ export function Sidebar({ userName = 'Пользователь', userRole = '', 
               )}
             >
               <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-[#2563EB]' : 'text-gray-400')} />
-              {label}
+              {t(labelKey)}
             </Link>
           )
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="px-3 py-4 border-t border-gray-100">
+      {/* Language + Logout */}
+      <div className="px-3 py-4 border-t border-gray-100 space-y-2">
+        <LanguageToggle />
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all w-full group"
         >
           <LogOut className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" />
-          Выйти
+          {t('common.logout')}
         </button>
       </div>
     </aside>

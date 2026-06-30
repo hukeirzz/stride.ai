@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { ObservationForm } from '@/components/observations/ObservationForm'
+import { getT } from '@/lib/i18n/server'
 
 export default async function NewObservationPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { student: defaultStudentId } = await searchParams
+  const { t } = await getT()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -33,8 +35,8 @@ export default async function NewObservationPage({ searchParams }: { searchParam
 
   return (
     <div className="p-4 sm:p-8 max-w-2xl">
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Добавить наблюдение</h1>
-      <p className="text-sm text-gray-400 mb-6 sm:mb-8">Заполнение занимает менее 30 секунд</p>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{t('obs.pageTitle')}</h1>
+      <p className="text-sm text-gray-400 mb-6 sm:mb-8">{t('obs.pageSubtitle')}</p>
       <ObservationForm students={studentList} classes={classes ?? []} authorId={user!.id} defaultStudentId={defaultStudentId} />
     </div>
   )

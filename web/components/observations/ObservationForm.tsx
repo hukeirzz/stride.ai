@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookOpen, Brain, Activity, Palette, Heart, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 const CATEGORIES = [
-  { id: 'academic', label: 'Академическое', icon: GraduationCap, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { id: 'behavior', label: 'Поведение', icon: Activity, color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
-  { id: 'psychology', label: 'Психология', icon: Brain, color: 'text-purple-600 bg-purple-50 border-purple-200' },
-  { id: 'sport', label: 'Спорт', icon: Activity, color: 'text-green-600 bg-green-50 border-green-200' },
-  { id: 'creative', label: 'Творчество', icon: Palette, color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  { id: 'health', label: 'Здоровье', icon: Heart, color: 'text-red-600 bg-red-50 border-red-200' },
+  { id: 'academic', icon: GraduationCap, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { id: 'behavior', icon: Activity, color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
+  { id: 'psychology', icon: Brain, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+  { id: 'sport', icon: Activity, color: 'text-green-600 bg-green-50 border-green-200' },
+  { id: 'creative', icon: Palette, color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { id: 'health', icon: Heart, color: 'text-red-600 bg-red-50 border-red-200' },
 ] as const
 
 interface Student { id: string; full_name: string; class_name: string; class_id: string | null }
@@ -22,6 +23,7 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
   students: Student[]; classes: ClassItem[]; authorId: string; defaultStudentId?: string
 }) {
   const router = useRouter()
+  const { t } = useI18n()
   const defaultStudent = defaultStudentId ? students.find(s => s.id === defaultStudentId) : null
   const [classId, setClassId] = useState(defaultStudent?.class_id ?? '')
   const [studentId, setStudentId] = useState(defaultStudentId ?? '')
@@ -54,7 +56,7 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
     })
 
     if (err) {
-      setError('Не удалось сохранить. Попробуйте снова.')
+      setError(t('obs.error'))
       setSaving(false)
       return
     }
@@ -74,13 +76,13 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Class select */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Класс</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('obs.class')}</label>
         <select
           value={classId}
           onChange={(e) => { setClassId(e.target.value); setStudentId('') }}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 bg-white"
         >
-          <option value="">Все классы</option>
+          <option value="">{t('obs.allClasses')}</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -89,14 +91,14 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
 
       {/* Student select */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">ФИО ученика</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('obs.student')}</label>
         <select
           value={studentId}
           onChange={(e) => setStudentId(e.target.value)}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 bg-white"
           required
         >
-          <option value="">Выберите ученика...</option>
+          <option value="">{t('obs.studentPlaceholder')}</option>
           {filteredStudents.map((s) => (
             <option key={s.id} value={s.id}>{s.full_name}</option>
           ))}
@@ -105,9 +107,9 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
 
       {/* Category */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Категория наблюдения</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">{t('obs.category')}</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {CATEGORIES.map(({ id, label, icon: Icon, color }) => (
+          {CATEGORIES.map(({ id, icon: Icon, color }) => (
             <button
               key={id}
               type="button"
@@ -118,7 +120,7 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
               )}
             >
               <Icon className="w-5 h-5" />
-              {label}
+              {t('cat.' + id)}
             </button>
           ))}
         </div>
@@ -126,17 +128,17 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
 
       {/* Content */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Заметка</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('obs.note')}</label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={5}
-          placeholder="Опишите ваше наблюдение об ученике. Что произошло? Что вы заметили? Какие рекомендации?"
+          placeholder={t('obs.notePlaceholder')}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-none"
         />
         <div className="flex justify-between mt-1">
-          <span className="text-xs text-gray-400">Минимум 10 символов</span>
-          <span className="text-xs text-gray-400">{content.length} символов</span>
+          <span className="text-xs text-gray-400">{t('obs.minChars')}</span>
+          <span className="text-xs text-gray-400">{t('obs.charsCount', { n: content.length })}</span>
         </div>
       </div>
 
@@ -151,7 +153,7 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
         >
           <div className={cn('w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow-sm', isAlert ? 'translate-x-5' : 'translate-x-0.5')} />
         </div>
-        <span className="text-sm text-gray-700">Отметить как тревожный сигнал</span>
+        <span className="text-sm text-gray-700">{t('obs.alert')}</span>
       </label>
 
       {success && (
@@ -159,7 +161,7 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
           <svg className="w-5 h-5 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Наблюдение успешно добавлено!
+          {t('obs.success')}
         </div>
       )}
 
@@ -170,23 +172,19 @@ export function ObservationForm({ students, classes, authorId, defaultStudentId 
         disabled={!canSave || saving}
         className="w-full py-3 bg-[#2563EB] text-white rounded-xl text-sm font-medium hover:bg-[#1D4ED8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {saving ? 'Сохраняем...' : 'Сохранить наблюдение'}
+        {saving ? t('obs.saving') : t('obs.save')}
       </button>
 
       {/* Tips */}
       <div className="bg-blue-50 rounded-xl p-4">
         <p className="text-xs font-medium text-blue-700 mb-1.5">
           <BookOpen className="w-3.5 h-3.5 inline mr-1" />
-          Советы для качественного наблюдения
+          {t('obs.tipsTitle')}
         </p>
         <ul className="space-y-1">
-          {[
-            'Описывайте конкретные факты, а не общие суждения',
-            'Укажите контекст: урок, перемена, внеклассное мероприятие',
-            'Добавьте конкретную рекомендацию, если она есть',
-          ].map((tip) => (
-            <li key={tip} className="text-xs text-blue-600 flex gap-1.5">
-              <span>•</span>{tip}
+          {['obs.tip1', 'obs.tip2', 'obs.tip3'].map((key) => (
+            <li key={key} className="text-xs text-blue-600 flex gap-1.5">
+              <span>•</span>{t(key)}
             </li>
           ))}
         </ul>
