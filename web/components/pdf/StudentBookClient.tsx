@@ -1,9 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { Download, Printer, Share2, BookOpen, X, Loader2 } from 'lucide-react'
 import { getStudentBookData } from '@/app/(dashboard)/student-book/actions'
+import type { BookData } from '@/lib/pdf/types'
+
+const BookPreview = dynamic(
+  () => import('@/components/pdf/StudentBookPreview').then((m) => m.StudentBookPreview),
+  { ssr: false, loading: () => <div className="h-full flex items-center justify-center"><Loader2 className="w-6 h-6 text-gray-300 animate-spin" /></div> },
+)
 
 
 
@@ -17,18 +23,31 @@ const CONTENTS = [
   'Наблюдения учителей',
 ]
 
-function formatDate() {
-  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
 export function StudentBookClient({ classes, students }: { classes: ClassItem[]; students: StudentItem[] }) {
   const [classId, setClassId] = useState('')
   const [studentId, setStudentId] = useState('')
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
-  const [generating, setGenerating] = useState(false)
+  const [busy, setBusy] = useState<'download' | 'print' | 'share' | null>(null)
   const [genError, setGenError] = useState('')
+  const [bookData, setBookData] = useState<BookData | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const comboRef = useRef<HTMLDivElement>(null)
+
+  // Загружаем данные книги при выборе ученика — для живого предпросмотра PDF
+  useEffect(() => {
+    if (!studentId) { setBookData(null); return }
+    let cancelled = false
+    setPreviewLoading(true); setBookData(null); setGenError('')
+    getStudentBookData(studentId)
+      .then((res) => {
+        if (cancelled) return
+        if (res.error || !res.data) setGenError(res.error ?? 'Не удалось получить данные')
+        else setBookData(res.data)
+      })
+      .finally(() => { if (!cancelled) setPreviewLoading(false) })
+    return () => { cancelled = true }
+  }, [studentId])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -44,7 +63,6 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     : byClass
 
   const selectedStudent = students.find((s) => s.id === studentId)
-  const selectedClass = classes.find((c) => c.id === (selectedStudent?.class_id ?? classId))
 
   function selectStudent(s: StudentItem) {
     setStudentId(s.id)
@@ -58,55 +76,81 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     setOpen(false)
   }
 
-  async function handleGenerate() {
-    if (!studentId || !selectedStudent || generating) return
-    setGenerating(true)
+  async function buildBlob(): Promise<Blob | null> {
+    let data = bookData
+    if (!data) {
+      const res = await getStudentBookData(studentId)
+      if (res.error || !res.data) { setGenError(res.error ?? 'Не удалось получить данные'); return null }
+      data = res.data
+    }
+    const { generateBookBlob } = await import('@/lib/pdf/StudentBookDocument')
+    return await generateBookBlob(data)
+  }
+
+  async function run(kind: 'download' | 'print' | 'share', action: (blob: Blob) => void | Promise<void>) {
+    if (!studentId || !selectedStudent || busy) return
+    setBusy(kind)
     setGenError('')
     try {
-      const res = await getStudentBookData(studentId)
-      if (res.error || !res.data) { setGenError(res.error ?? 'Не удалось получить данные'); return }
-      const { generateBookBlob } = await import('@/lib/pdf/StudentBookDocument')
-      const blob = await generateBookBlob(res.data)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Книга ученика — ${selectedStudent.full_name}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const blob = await buildBlob()
+      if (blob) await action(blob)
     } catch (e) {
       console.error(e)
       setGenError('Не удалось сформировать PDF')
     } finally {
-      setGenerating(false)
+      setBusy(null)
     }
+  }
+
+  const fileName = () => `Книга ученика — ${selectedStudent?.full_name ?? ''}.pdf`
+
+  function handleDownload() {
+    run('download', (blob) => {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = fileName()
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    })
+  }
+
+  function handlePrint() {
+    run('print', (blob) => {
+      const url = URL.createObjectURL(blob)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'; iframe.style.right = '0'; iframe.style.bottom = '0'
+      iframe.style.width = '0'; iframe.style.height = '0'; iframe.style.border = '0'
+      iframe.src = url
+      iframe.onload = () => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print() } catch { /* ignore */ } }
+      document.body.appendChild(iframe)
+      setTimeout(() => { iframe.remove(); URL.revokeObjectURL(url) }, 60000)
+    })
+  }
+
+  function handleShare() {
+    run('share', async (blob) => {
+      const file = new File([blob], fileName(), { type: 'application/pdf' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nav = navigator as any
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        try { await nav.share({ files: [file], title: 'Книга ученика' }) } catch { /* пользователь отменил */ }
+      } else {
+        // запасной вариант — скачивание
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = file.name
+        document.body.appendChild(a); a.click(); a.remove()
+        URL.revokeObjectURL(url)
+      }
+    })
   }
 
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-wrap items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Книга ученика</h1>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Автоматически сформированный профиль · PDF формат</p>
-        </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <button className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
-            <Printer className="w-4 h-4" /> Печать
-          </button>
-          <button className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:px-3.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap">
-            <Share2 className="w-4 h-4" /> Поделиться
-          </button>
-          <button
-            onClick={handleGenerate}
-            disabled={!studentId || generating}
-            className="flex items-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-3 py-2 sm:px-4 rounded-lg transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {generating ? 'Формируем…' : 'Скачать PDF'}
-          </button>
-        </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Книга ученика</h1>
+        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Автоматически сформированный профиль · PDF формат</p>
       </div>
 
       {/* Controls bar */}
@@ -156,20 +200,36 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerate}
-              disabled={!studentId || generating}
-              className="flex-1 sm:flex-none px-4 py-2 sm:py-1.5 bg-[#2563EB] text-white rounded-lg text-sm font-medium hover:bg-[#1D4ED8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {generating ? 'Формируем…' : 'Создать PDF'}
-            </button>
-            {selectedStudent && (
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                Обновлено: {formatDate()}
-              </span>
-            )}
-          </div>
+          {selectedStudent ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handlePrint}
+                disabled={!!busy}
+                className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy === 'print' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                Печать
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={!!busy}
+                className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy === 'share' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                Поделиться
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={!!busy}
+                className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-4 py-2 sm:py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {busy === 'download' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Скачать
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">Выберите ученика</span>
+          )}
         </div>
       </div>
 
@@ -177,12 +237,29 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
         <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl">{genError}</p>
       )}
 
-      {/* Main: book + contents */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Book preview — left */}
-        <BookCover student={selectedStudent} studentClass={selectedClass} />
+      {/* Main: real PDF preview + contents */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Live PDF preview — scrollable */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden h-[720px]">
+          {!selectedStudent ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <BookOpen className="w-6 h-6 text-gray-300" />
+                </div>
+                <p className="text-sm text-gray-400">Выберите ученика для предпросмотра</p>
+              </div>
+            </div>
+          ) : previewLoading || !bookData ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
+            </div>
+          ) : (
+            <BookPreview data={bookData} />
+          )}
+        </div>
 
-        {/* Contents — right */}
+        {/* Contents */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-5">Содержание</h3>
           <ol className="space-y-4">
@@ -195,86 +272,6 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
               </li>
             ))}
           </ol>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function BookCover({ student, studentClass }: { student: StudentItem | undefined; studentClass: ClassItem | undefined }) {
-  if (!student) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-100 flex items-center justify-center min-h-[480px]">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <BookOpen className="w-6 h-6 text-gray-300" />
-          </div>
-          <p className="text-sm text-gray-400">Выберите ученика для предпросмотра</p>
-        </div>
-      </div>
-    )
-  }
-
-  const initials = student.full_name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ minHeight: 480 }}>
-      {/* Card content */}
-      <div className="flex flex-col h-full" style={{ minHeight: 480 }}>
-        {/* Upper section */}
-        <div className="flex-1 px-8 pt-8 pb-4">
-          {/* Logo */}
-          <div className="mb-10">
-            <Image src="/logo.png" width={100} height={33} alt="stride.ai" />
-          </div>
-
-          {/* Book title */}
-          <h1 className="text-[2.2rem] font-black text-[#1e3a6e] leading-none mb-5">
-            КНИГА<br />УЧЕНИКА
-          </h1>
-
-          {/* Student name */}
-          <h2 className="text-xl font-bold text-gray-900 mb-1.5">{student.full_name}</h2>
-          <p className="text-sm text-gray-400">
-            {studentClass?.name ?? '—'} класс &nbsp;|&nbsp; 2024-2025 учебный год
-          </p>
-        </div>
-
-        {/* Lower section: wave + photo */}
-        <div className="relative" style={{ height: 220 }}>
-          {/* Blue oval wave */}
-          <div
-            className="absolute bg-[#4f8ef7] rounded-[50%]"
-            style={{
-              width: '160%',
-              height: '340px',
-              left: '-30%',
-              bottom: '-130px',
-            }}
-          />
-          {/* Lighter inner oval for depth */}
-          <div
-            className="absolute bg-[#3b82f6] rounded-[50%]"
-            style={{
-              width: '140%',
-              height: '300px',
-              left: '-20%',
-              bottom: '-120px',
-            }}
-          />
-          {/* Student photo */}
-          <div className="absolute left-1/2 -translate-x-1/2 z-10" style={{ top: 24 }}>
-            <div className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-blue-100 shadow-md">
-              {student.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                  <span className="text-blue-600 text-2xl font-bold">{initials}</span>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
