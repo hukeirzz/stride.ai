@@ -181,7 +181,7 @@ export default async function AnalyticsPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Аналитика школы</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Дашборд для директора · {schoolYear - 1}–{schoolYear}</p>
+        <p className="text-sm text-gray-400 mt-0.5">Дашборд для администрации</p>
       </div>
 
       <AnalyticsClient
