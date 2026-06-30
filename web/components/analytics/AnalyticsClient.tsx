@@ -113,8 +113,8 @@ export function AnalyticsClient({
         </div>
       </div>
 
-      {/* ── Сравнение классов ── */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-5">
+      {/* ── Сравнение классов + Цели родителей ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
 
         {/* Сравнение классов */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -161,10 +161,9 @@ export function AnalyticsClient({
             </div>
           )}
         </div>
-      </div>
 
-      {/* ── Parent goals ── */}
-      {parentGoals.length > 0 && (() => {
+        {/* Цели родителей */}
+        {parentGoals.length > 0 && (() => {
         const GOAL_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#06B6D4','#EC4899','#6366F1','#14B8A6','#F97316','#84CC16','#A855F7']
         const goalsTotal = parentGoals.reduce((s, g) => s + g.value, 0)
         const goalsWithColor = parentGoals.map((g, i) => ({ ...g, color: GOAL_COLORS[i % GOAL_COLORS.length] }))
@@ -201,6 +200,7 @@ export function AnalyticsClient({
           </div>
         )
       })()}
+      </div>
 
       {/* ── AI school report ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
