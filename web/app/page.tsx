@@ -17,32 +17,42 @@ export default async function HomePage() {
   const schoolId = profile?.school_id ?? ''
   const userName = profile?.full_name ?? ''
   const userRole = profile?.role ?? ''
-  const classTeacherClassId = userRole === 'class_teacher' ? (profile?.class_id ?? null) : null
   const schoolYear = (profile?.school as { school_year?: number } | null)?.school_year ?? 2026
   const canViewAnalytics = ['admin', 'deputy', 'manager'].includes(userRole)
 
-  // For class teacher: get student IDs in their class to scope observations
+  // Классный руководитель может вести несколько классов (classes.teacher_id)
+  let classTeacherClassIds: string[] = []
+  let classTeacherClassName: string | null = null
+  if (userRole === 'class_teacher') {
+    const { data: myClasses } = await supabase
+      .from('classes').select('id, name').eq('teacher_id', user.id).order('name')
+    classTeacherClassIds = (myClasses ?? []).map((c: any) => c.id)
+    classTeacherClassName = (myClasses ?? []).map((c: any) => c.name).join(', ') || null
+  }
+  const scopedToClasses = classTeacherClassIds.length > 0
+
+  // For class teacher: get student IDs in their classes to scope observations
   let classStudentIds: string[] | null = null
-  if (classTeacherClassId) {
+  if (scopedToClasses) {
     const { data: classStudents } = await supabase
-      .from('students').select('id').eq('class_id', classTeacherClassId)
+      .from('students').select('id').in('class_id', classTeacherClassIds)
     classStudentIds = (classStudents ?? []).map((s: any) => s.id)
   }
 
   // All student IDs in scope — used to explicitly filter observations (avoids RLS join gaps)
   let obsStudentIds: string[] = classStudentIds ?? []
-  if (!classTeacherClassId && schoolId) {
+  if (!scopedToClasses && schoolId) {
     const { data: schoolStudents } = await supabase
       .from('students').select('id').eq('school_id', schoolId).eq('status', 'active')
     obsStudentIds = (schoolStudents ?? []).map((s: any) => s.id)
   }
 
-  const studentFilter = classTeacherClassId
-    ? supabase.from('students').select('id', { count: 'exact', head: true }).eq('class_id', classTeacherClassId).eq('status', 'active')
+  const studentFilter = scopedToClasses
+    ? supabase.from('students').select('id', { count: 'exact', head: true }).in('class_id', classTeacherClassIds).eq('status', 'active')
     : supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'active')
 
-  const riskFilter = classTeacherClassId
-    ? supabase.from('students').select('id, full_name, risk_level, class:classes(name)').eq('class_id', classTeacherClassId).in('risk_level', ['high', 'medium']).limit(5)
+  const riskFilter = scopedToClasses
+    ? supabase.from('students').select('id, full_name, risk_level, class:classes(name)').in('class_id', classTeacherClassIds).in('risk_level', ['high', 'medium']).limit(5)
     : supabase.from('students').select('id, full_name, risk_level, class:classes(name)').eq('school_id', schoolId).in('risk_level', ['high', 'medium']).limit(5)
 
   const obsSelect = 'id, author_id, student_id, content, category, created_at, is_alert, student:students(full_name, class_id, photo_url, class:classes(name)), author:users(full_name), reactions:observation_reactions(emoji, user_id, user:users(full_name))'
@@ -179,13 +189,6 @@ export default async function HomePage() {
     noRecentObs = noRecentObs.filter((r: { id: string }) => classStudentIds!.includes(r.id))
   }
 
-  // Fetch class name for class teacher subtitle
-  let classTeacherClassName: string | null = null
-  if (classTeacherClassId) {
-    const { data: cls } = await supabase.from('classes').select('name').eq('id', classTeacherClassId).single()
-    classTeacherClassName = cls?.name ?? null
-  }
-
   // AI school report — only for admin, deputy, manager
   let aiRecommendations: string | null = null
   if (canViewAnalytics && schoolId) {
@@ -212,7 +215,7 @@ export default async function HomePage() {
         canViewAnalytics={canViewAnalytics}
         classTeacherClassName={classTeacherClassName}
         currentUserId={user!.id}
-        defaultClassId={classStudentIds !== null && classStudentIds.length > 0 ? (classTeacherClassId ?? '') : ''}
+        defaultClassId=""
         noRecentObs={noRecentObs}
         newStudentsMonth={newStudentsMonth}
         departedMonth={departedMonth}

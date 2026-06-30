@@ -10,7 +10,7 @@ const ALL_ROLES: Role[] = ['admin', 'deputy', 'teacher', 'class_teacher', 'psych
 
 interface StaffMember {
   id: string; full_name: string; email: string; role: string
-  class_name: string | null; class_id: string | null; obs_count: number
+  class_id: string | null; class_ids: string[]; class_names: string[]; obs_count: number
 }
 interface ClassItem { id: string; name: string; grade?: number | null; letter?: string | null }
 
@@ -26,10 +26,14 @@ export function StaffTable({ staff: initial, classes, currentUserId }: {
   const [copied, setCopied] = useState(false)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [classModal, setClassModal] = useState<{ userId: string; newRole: string } | null>(null)
-  const [pickedClassId, setPickedClassId] = useState('')
+  const [pickedClassIds, setPickedClassIds] = useState<string[]>([])
   const [isNewClass, setIsNewClass] = useState(false)
   const [newGrade, setNewGrade] = useState('')
   const [newLetter, setNewLetter] = useState('')
+
+  function togglePicked(id: string) {
+    setPickedClassIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   const visibleRoles = ALL_ROLES.filter(r => staff.some(s => s.role === r))
 
@@ -61,41 +65,50 @@ export function StaffTable({ staff: initial, classes, currentUserId }: {
     setLoadingId(null)
   }
 
+  function openClassModal(id: string, newRole: string, preselect: string[]) {
+    setPickedClassIds(preselect)
+    setIsNewClass(false); setNewGrade(''); setNewLetter('')
+    setClassModal({ userId: id, newRole })
+  }
+
   function handleRoleSelect(id: string, newRole: string, currentRole: string) {
     if (newRole === currentRole) return
     if (newRole === 'class_teacher') {
-      setPickedClassId(''); setIsNewClass(false); setNewGrade(''); setNewLetter('')
-      setClassModal({ userId: id, newRole })
+      openClassModal(id, newRole, staff.find(s => s.id === id)?.class_ids ?? [])
     } else {
-      applyRoleChange(id, newRole)
+      applyRoleChange(id, newRole, [], [])
     }
   }
 
-  async function applyRoleChange(id: string, newRole: string, classId?: string | null, grade?: number, letter?: string) {
+  async function applyRoleChange(
+    id: string, newRole: string, classIds: string[] = [], classNames: string[] = [],
+    newClass?: { grade: number; letter: string },
+  ) {
     setLoadingId(id)
-    const res = await changeStaffRole(id, newRole, classId, grade, letter)
+    const res = await changeStaffRole(id, newRole, classIds, newClass)
     if (res.error) { alert(res.error); setLoadingId(null); return }
+    const resolvedIds = (res.classIds as string[] | undefined) ?? classIds
     setStaff(prev => prev.map(s => s.id === id ? {
       ...s, role: newRole,
-      class_id: newRole === 'class_teacher' ? (classId ?? null) : null,
-      class_name: newRole === 'class_teacher'
-        ? (classId === '__new__' && grade && letter ? `${grade}${letter}` : classes.find(c => c.id === classId)?.name ?? null)
-        : null,
+      class_id: newRole === 'class_teacher' ? (resolvedIds[0] ?? null) : null,
+      class_ids: newRole === 'class_teacher' ? resolvedIds : [],
+      class_names: newRole === 'class_teacher' ? classNames : [],
     } : s))
     setLoadingId(null)
   }
 
   async function confirmClassModal() {
     if (!classModal) return
-    if (!isNewClass && !pickedClassId) { alert('Выберите класс'); return }
+    const hasNew = isNewClass && newGrade && newLetter
+    if (pickedClassIds.length === 0 && !hasNew) { alert('Выберите хотя бы один класс'); return }
     if (isNewClass && (!newGrade || !newLetter)) { alert('Укажите параллель и букву'); return }
+    const names = [
+      ...pickedClassIds.map(id => classes.find(c => c.id === id)?.name ?? '').filter(Boolean),
+      ...(hasNew ? [`${newGrade}${newLetter}`] : []),
+    ]
+    const newClass = hasNew ? { grade: parseInt(newGrade), letter: newLetter } : undefined
     setClassModal(null)
-    await applyRoleChange(
-      classModal.userId, classModal.newRole,
-      isNewClass ? '__new__' : pickedClassId,
-      isNewClass ? parseInt(newGrade) : undefined,
-      isNewClass ? newLetter : undefined,
-    )
+    await applyRoleChange(classModal.userId, classModal.newRole, pickedClassIds, names, newClass)
   }
 
   return (
@@ -163,8 +176,18 @@ export function StaffTable({ staff: initial, classes, currentUserId }: {
                           </select>
                         </div>
                       )}
-                      {s.role === 'class_teacher' && s.class_name && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{s.class_name}</span>
+                      {s.role === 'class_teacher' && !isSelf && (
+                        <button
+                          onClick={() => openClassModal(s.id, 'class_teacher', s.class_ids)}
+                          disabled={isLoading}
+                          title="Изменить классы"
+                          className="text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors disabled:opacity-50"
+                        >
+                          {s.class_names.length > 0 ? s.class_names.join(', ') : 'выбрать классы'}
+                        </button>
+                      )}
+                      {s.role === 'class_teacher' && isSelf && s.class_names.length > 0 && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{s.class_names.join(', ')}</span>
                       )}
                     </div>
                   </td>
@@ -204,34 +227,36 @@ export function StaffTable({ staff: initial, classes, currentUserId }: {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Выберите класс</h3>
+              <h3 className="font-semibold text-gray-900">Классы руководителя</h3>
               <button onClick={() => setClassModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-xs text-gray-400 mb-4">Укажите класс, которым будет руководить сотрудник</p>
+            <p className="text-xs text-gray-400 mb-4">Отметьте классы, которыми руководит сотрудник (можно несколько)</p>
 
-            {!isNewClass ? (
-              <div className="space-y-2 mb-4">
-                <select value={pickedClassId} onChange={e => { if (e.target.value === '__new__') { setIsNewClass(true); setPickedClassId('') } else setPickedClassId(e.target.value) }}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white">
-                  <option value="">Выберите класс...</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  <option value="__new__">➕ Создать новый класс</option>
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2 mb-4">
-                <div className="flex gap-2">
-                  <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
-                    className="w-28 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white">
-                    <option value="">Паралл.</option>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                  <input value={newLetter} onChange={e => setNewLetter(e.target.value)} placeholder="Буква / тип (А, Физмат...)"
-                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white" />
+            <div className="space-y-2 mb-4 max-h-56 overflow-y-auto">
+              {classes.map(c => (
+                <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-sm border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
+                  <input type="checkbox" checked={pickedClassIds.includes(c.id)} onChange={() => togglePicked(c.id)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-200" />
+                  <span className="text-gray-700">{c.name}</span>
+                </label>
+              ))}
+              {!isNewClass ? (
+                <button type="button" onClick={() => setIsNewClass(true)} className="text-xs text-blue-500 hover:text-blue-700">➕ Создать новый класс</button>
+              ) : (
+                <div className="space-y-2 border border-gray-200 rounded-xl p-3">
+                  <div className="flex gap-2">
+                    <select value={newGrade} onChange={e => setNewGrade(e.target.value)}
+                      className="w-28 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white">
+                      <option value="">Паралл.</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                    <input value={newLetter} onChange={e => setNewLetter(e.target.value)} placeholder="Буква / тип (А, Физмат...)"
+                      className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white" />
+                  </div>
+                  <button type="button" onClick={() => { setIsNewClass(false); setNewGrade(''); setNewLetter('') }} className="text-xs text-blue-500 hover:text-blue-700">← Отменить новый класс</button>
                 </div>
-                <button type="button" onClick={() => setIsNewClass(false)} className="text-xs text-blue-500 hover:text-blue-700">← Выбрать существующий</button>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="flex gap-3">
               <button onClick={() => setClassModal(null)} className="flex-1 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">Отмена</button>

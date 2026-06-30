@@ -19,7 +19,7 @@ export default async function StaffPage() {
       .eq('school_id', profile?.school_id ?? '')
       .order('full_name'),
     supabase
-      .from('classes').select('id, name, grade, letter')
+      .from('classes').select('id, name, grade, letter, teacher_id')
       .eq('school_id', profile?.school_id ?? '').order('name'),
   ])
 
@@ -67,15 +67,19 @@ export default async function StaffPage() {
 
       <div className="mb-6">
         <StaffTable
-          staff={(staff ?? []).map((s: any) => ({
-            id: s.id,
-            full_name: s.full_name,
-            email: s.email,
-            role: s.role,
-            class_name: (classes ?? []).find((c) => c.id === s.class_id)?.name ?? null,
-            class_id: s.class_id ?? null,
-            obs_count: obsCount.get(s.id) ?? 0,
-          }))}
+          staff={(staff ?? []).map((s: any) => {
+            const myClasses = (classes ?? []).filter((c: any) => c.teacher_id === s.id)
+            return {
+              id: s.id,
+              full_name: s.full_name,
+              email: s.email,
+              role: s.role,
+              class_id: myClasses[0]?.id ?? s.class_id ?? null,
+              class_ids: myClasses.map((c: any) => c.id),
+              class_names: myClasses.map((c: any) => c.name),
+              obs_count: obsCount.get(s.id) ?? 0,
+            }
+          })}
           classes={classes ?? []}
           currentUserId={user!.id}
         />

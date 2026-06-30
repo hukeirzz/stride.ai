@@ -14,15 +14,19 @@ export async function dismissAlert(id: string): Promise<{ error?: string }> {
   if (!['admin', 'deputy', 'manager', 'class_teacher'].includes(profile?.role ?? ''))
     return { error: 'Нет прав' }
 
-  // Class teacher can only dismiss alerts for their own class
-  if (profile?.role === 'class_teacher' && profile?.class_id) {
+  // Class teacher can only dismiss alerts for students in classes they lead
+  if (profile?.role === 'class_teacher') {
     const { data: obs } = await supabase
       .from('observations').select('student_id').eq('id', id).single()
     if (!obs) return { error: 'Наблюдение не найдено' }
 
     const { data: student } = await supabase
       .from('students').select('class_id').eq('id', obs.student_id).single()
-    if (student?.class_id !== profile.class_id) return { error: 'Нет прав: ученик не в вашем классе' }
+    if (!student?.class_id) return { error: 'Нет прав: ученик не в вашем классе' }
+
+    const { data: cls } = await supabase
+      .from('classes').select('id').eq('id', student.class_id).eq('teacher_id', user.id).maybeSingle()
+    if (!cls) return { error: 'Нет прав: ученик не в вашем классе' }
   }
 
   const { error } = await supabase

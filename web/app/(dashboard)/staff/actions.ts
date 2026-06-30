@@ -28,7 +28,12 @@ export async function deleteStaff(userId: string) {
   return { success: true }
 }
 
-export async function changeStaffRole(userId: string, newRole: string, classId?: string | null, newClassGrade?: number, newClassLetter?: string) {
+export async function changeStaffRole(
+  userId: string,
+  newRole: string,
+  classIds: string[] = [],
+  newClass?: { grade: number; letter: string },
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Не авторизован' }
@@ -38,26 +43,36 @@ export async function changeStaffRole(userId: string, newRole: string, classId?:
   if (profile?.role !== 'admin') return { error: 'Нет прав' }
   if (userId === user.id) return { error: 'Нельзя изменить свою роль' }
 
-  let resolvedClassId: string | null = classId ?? null
+  const admin = createAdminClient()
+  const resolved = [...classIds]
 
-  // Create new class if needed
-  if (newRole === 'class_teacher' && classId === '__new__' && newClassGrade && newClassLetter) {
-    const { data: cls, error: clsErr } = await supabase
+  // Create a new class if requested
+  if (newRole === 'class_teacher' && newClass?.grade && newClass?.letter) {
+    const { data: cls, error: clsErr } = await admin
       .from('classes')
-      .insert({ school_id: profile.school_id, name: `${newClassGrade}${newClassLetter}`, grade: newClassGrade, letter: newClassLetter })
+      .insert({ school_id: profile.school_id, name: `${newClass.grade}${newClass.letter}`, grade: newClass.grade, letter: newClass.letter })
       .select('id').single()
     if (clsErr) return { error: 'Ошибка создания класса' }
-    resolvedClassId = cls.id
+    resolved.push(cls.id)
   }
 
+  // Role + primary class (для совместимости users.class_id = первый класс)
   const { error } = await supabase.from('users').update({
     role: newRole,
-    class_id: newRole === 'class_teacher' ? resolvedClassId : null,
+    class_id: newRole === 'class_teacher' ? (resolved[0] ?? null) : null,
   }).eq('id', userId)
   if (error) return { error: 'Ошибка изменения роли' }
 
+  // classes.teacher_id — источник правды о классах классрука.
+  // Сначала снимаем все классы, которыми он руководил, затем ставим выбранные.
+  await admin.from('classes').update({ teacher_id: null }).eq('teacher_id', userId)
+  if (newRole === 'class_teacher' && resolved.length > 0) {
+    await admin.from('classes').update({ teacher_id: userId }).in('id', resolved)
+  }
+
   revalidatePath('/staff')
-  return { success: true }
+  revalidatePath('/', 'layout')
+  return { success: true, classIds: resolved }
 }
 
 export async function resetStaffPassword(userId: string) {

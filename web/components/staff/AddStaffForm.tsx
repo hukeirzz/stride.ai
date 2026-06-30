@@ -39,37 +39,44 @@ export function AddStaffForm({ classes }: { classes: ClassItem[] }) {
         </select>
       </Field>
 
-      {/* Class picker — only for class_teacher */}
+      {/* Class picker — only for class_teacher (можно несколько) */}
       {isClassTeacher && (
-        <Field label="Класс *" icon={<BookOpen className="w-4 h-4" />}>
-          {!isNewClass ? (
-            <div className="space-y-2">
-              <select name="class_id" className={INPUT_CLS} onChange={e => { if (e.target.value === '__new__') setIsNewClass(true) }}>
-                <option value="">Выберите класс...</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                <option value="__new__">➕ Создать новый класс</option>
-              </select>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <input type="hidden" name="class_id" value="__new__" />
-              <div className="flex gap-2">
-                <select name="new_class_grade" className={`${INPUT_CLS} w-28`} defaultValue="">
-                  <option value="" disabled>Параллель</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-                <input name="new_class_letter" placeholder="Буква / тип (А, Физмат...)" autoFocus className={INPUT_CLS} />
+        <Field label="Классы *" icon={<BookOpen className="w-4 h-4" />}>
+          <div className="space-y-2">
+            {classes.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {classes.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" name="class_ids" value={c.id} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-200" />
+                    <span className="text-gray-700">{c.name}</span>
+                  </label>
+                ))}
               </div>
-              <p className="text-xs text-gray-400">Например: 9 + А → класс 9А</p>
-              {classes.length > 0 && (
+            )}
+            {!isNewClass ? (
+              <button type="button" onClick={() => setIsNewClass(true)} className="text-xs text-blue-500 hover:text-blue-700">
+                ➕ Создать новый класс
+              </button>
+            ) : (
+              <div className="space-y-2 border border-gray-200 rounded-xl p-3">
+                <input type="hidden" name="create_new_class" value="1" />
+                <div className="flex gap-2">
+                  <select name="new_class_grade" className={`${INPUT_CLS} w-28`} defaultValue="">
+                    <option value="" disabled>Параллель</option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  <input name="new_class_letter" placeholder="Буква / тип (А, Физмат...)" autoFocus className={INPUT_CLS} />
+                </div>
+                <p className="text-xs text-gray-400">Например: 9 + А → класс 9А</p>
                 <button type="button" onClick={() => setIsNewClass(false)} className="text-xs text-blue-500 hover:text-blue-700">
-                  ← Выбрать существующий класс
+                  ← Отменить новый класс
                 </button>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+            <p className="text-xs text-gray-400">Можно выбрать несколько классов.</p>
+          </div>
         </Field>
       )}
 

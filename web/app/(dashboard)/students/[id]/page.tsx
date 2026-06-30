@@ -38,12 +38,14 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
   const [{ data: classes }, classTeacherRes, { data: currentUser }] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', student.school_id).order('name'),
     student.class_id
-      ? supabase.from('users').select('full_name').eq('class_id', student.class_id).eq('role', 'class_teacher').single()
+      ? supabase.from('classes').select('teacher:users!teacher_id(full_name)').eq('id', student.class_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from('users').select('role').eq('id', user!.id).single(),
   ])
 
-  const classTeacher = classTeacherRes.data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ct = (classTeacherRes.data as any)?.teacher
+  const classTeacher = (Array.isArray(ct) ? ct[0] : ct) ?? null
   const canEdit = ['admin', 'deputy', 'manager', 'class_teacher'].includes(currentUser?.role ?? '')
 
   const aiSummaries = {
