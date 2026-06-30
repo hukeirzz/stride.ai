@@ -11,23 +11,10 @@ import { cn } from '@/lib/utils'
 interface DepartureReason { name: string; value: number; color: string }
 interface TrendDay { label: string; total: number; alerts: number }
 interface ClassStat { name: string; studentCount: number; obsCount: number; alertCount: number; riskCount: number; noObsCount: number }
-interface TeacherStat { name: string; role: string; obsCount: number; lastObs: string | null }
 interface AiReport {
   climate: string | null; at_risk_classes: string | null
   trends: string | null; recommendations: string | null
   month: string; generated_at: string
-}
-
-function daysAgo(dateStr: string | null): string {
-  if (!dateStr) return '—'
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (days === 0) return 'Сегодня'
-  if (days === 1) return 'Вчера'
-  return `${days} дн. назад`
-}
-
-function initials(name: string) {
-  return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -36,17 +23,16 @@ interface ParentGoal { name: string; value: number }
 export function AnalyticsClient({
   totalStudents, riskCount, totalObservations, alertObservations,
   departureReasons, departedTotal, schoolYear,
-  trendData, classStats, teacherStats, aiReport, parentGoals = [],
+  trendData, classStats, aiReport, parentGoals = [],
 }: {
   totalStudents: number; riskCount: number; totalObservations: number; alertObservations: number
   departureReasons: DepartureReason[]; departedTotal: number; schoolYear: number
   trendData: TrendDay[]
-  classStats: ClassStat[]; teacherStats: TeacherStat[]
+  classStats: ClassStat[]
   aiReport: AiReport | null
   parentGoals?: ParentGoal[]
 }) {
   const reasonsTotal = departureReasons.reduce((sum, r) => sum + r.value, 0)
-  const maxTeacherObs = Math.max(...teacherStats.map((t) => t.obsCount), 1)
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -127,45 +113,8 @@ export function AnalyticsClient({
         </div>
       </div>
 
-      {/* ── Row: Teacher activity + Class comparison ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-
-        {/* Активность педагогов */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Активность педагогов</h3>
-            <span className="text-xs text-gray-400">за 30 дней</span>
-          </div>
-          {teacherStats.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Нет данных</p>
-          ) : (
-            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-              {teacherStats.map((t) => (
-                <div key={t.name}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
-                        {initials(t.name)}
-                      </div>
-                      <span className="text-xs font-medium text-gray-800 truncate">{t.name}</span>
-                      <span className="text-[10px] text-gray-400 flex-shrink-0">{t.role}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      <span className={cn('text-xs font-semibold', t.obsCount === 0 ? 'text-gray-300' : 'text-gray-700')}>{t.obsCount}</span>
-                      <span className="text-[10px] text-gray-400">{daysAgo(t.lastObs)}</span>
-                    </div>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={cn('h-full rounded-full transition-all', t.obsCount === 0 ? 'bg-gray-200' : 'bg-blue-500')}
-                      style={{ width: `${Math.round(t.obsCount / maxTeacherObs * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* ── Сравнение классов ── */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-5">
 
         {/* Сравнение классов */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">

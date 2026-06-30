@@ -19,7 +19,7 @@ export default async function AnalyticsPage() {
   }
 
   // ── Batch 1: structure-level data ──────────────────────────────────────────
-  const [studentsRes, departedRes, classesRes, staffRes, noRecentObsRes] = await Promise.all([
+  const [studentsRes, departedRes, classesRes, noRecentObsRes] = await Promise.all([
     supabase.from('students')
       .select('id, full_name, risk_level, class_id, class:classes(name)')
       .eq('school_id', schoolId).eq('status', 'active'),
@@ -27,9 +27,6 @@ export default async function AnalyticsPage() {
       .select('id, departure_reason').eq('school_id', schoolId).eq('status', 'departed'),
     supabase.from('classes')
       .select('id, name').eq('school_id', schoolId),
-    supabase.from('users')
-      .select('id, full_name, role').eq('school_id', schoolId)
-      .in('role', ['deputy', 'class_teacher', 'teacher', 'psychologist', 'nurse', 'security']),
     schoolId
       ? supabase.rpc('get_students_no_recent_obs', { p_school_id: schoolId })
       : Promise.resolve({ data: [] }),
@@ -125,24 +122,6 @@ export default async function AnalyticsPage() {
     return ag !== bg ? bg - ag : al.localeCompare(bl)
   })
 
-  // ── Teacher activity (30d) ─────────────────────────────────────────────────
-  const teacherObs30d: Record<string, { total: number; lastObs: string }> = {}
-  for (const obs of obs30d) {
-    if (!teacherObs30d[obs.author_id]) teacherObs30d[obs.author_id] = { total: 0, lastObs: obs.created_at }
-    teacherObs30d[obs.author_id].total++
-    if (obs.created_at > teacherObs30d[obs.author_id].lastObs) teacherObs30d[obs.author_id].lastObs = obs.created_at
-  }
-  const ROLE_LABELS: Record<string, string> = {
-    deputy: 'Завуч', class_teacher: 'Кл. рук.', teacher: 'Учитель',
-    psychologist: 'Психолог', nurse: 'Медсестра', security: 'Охрана',
-  }
-  const teacherStats = (staffRes.data ?? []).map((u) => ({
-    name: u.full_name as string,
-    role: ROLE_LABELS[u.role] ?? u.role,
-    obsCount: teacherObs30d[u.id]?.total ?? 0,
-    lastObs: teacherObs30d[u.id]?.lastObs ?? null,
-  })).sort((a, b) => b.obsCount - a.obsCount)
-
   // ── Parent goals ──────────────────────────────────────────────────────────
   const { data: parentGoalRows } = await supabase
     .from('students')
@@ -194,7 +173,6 @@ export default async function AnalyticsPage() {
         schoolYear={schoolYear}
         trendData={trendData}
         classStats={classStats}
-        teacherStats={teacherStats}
         aiReport={aiReport ?? null}
         parentGoals={parentGoals}
       />

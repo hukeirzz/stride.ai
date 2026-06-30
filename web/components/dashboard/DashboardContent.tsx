@@ -51,6 +51,8 @@ interface NoRecentObsItem {
   days_since: number | null
 }
 
+interface TeacherStat { name: string; role: string; obsCount: number; lastObs: string | null }
+
 interface Props {
   stats: { students: number; alerts: number; observations: number }
   riskStudents: Array<{ id: string; full_name: string; risk_level: string; class?: { name: string } | null }>
@@ -74,9 +76,10 @@ interface Props {
   newObsWeek?: number
   newAlertObsWeek?: number
   aiRecommendations?: string | null
+  teacherStats?: TeacherStat[]
 }
 
-export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], recentObservations, userName, classes = [], schoolYear = 2026, isAdmin = false, canViewAnalytics = false, classTeacherClassName, currentUserId, defaultClassId = '', newStudentsMonth = 0, departedMonth = 0, newObsWeek = 0, newAlertObsWeek = 0, aiRecommendations = null }: Props) {
+export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], recentObservations, userName, classes = [], schoolYear = 2026, isAdmin = false, canViewAnalytics = false, classTeacherClassName, currentUserId, defaultClassId = '', newStudentsMonth = 0, departedMonth = 0, newObsWeek = 0, newAlertObsWeek = 0, aiRecommendations = null, teacherStats = [] }: Props) {
   const [classFilter, setClassFilter] = useState(defaultClassId)
   const [search, setSearch] = useState('')
   const [observations, setObservations] = useState(recentObservations)
@@ -248,6 +251,11 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
             </Link>
           </div>
         )}
+      </div>
+
+      {/* Активность педагогов */}
+      <div className="mb-4 sm:mb-5">
+        <TeacherActivityCard stats={teacherStats} />
       </div>
 
       {/* Bottom: risk students + alert observations */}
@@ -481,6 +489,56 @@ function NoRecentObsCard({ students }: { students: NoRecentObsItem[] }) {
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function tInitials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+function daysAgoLabel(dateStr: string | null) {
+  if (!dateStr) return '—'
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (days === 0) return 'Сегодня'
+  if (days === 1) return 'Вчера'
+  return `${days} дн. назад`
+}
+
+function TeacherActivityCard({ stats }: { stats: TeacherStat[] }) {
+  const maxObs = Math.max(...stats.map(t => t.obsCount), 1)
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-gray-900">Активность педагогов</h3>
+          <InfoTooltip text="Сколько наблюдений добавил каждый сотрудник за последние 30 дней и как давно было последнее." />
+        </div>
+        <span className="text-xs text-gray-400">за 30 дней</span>
+      </div>
+      {stats.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">Нет данных</p>
+      ) : (
+        <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+          {stats.map(t => (
+            <div key={t.name}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">{tInitials(t.name)}</div>
+                  <span className="text-xs font-medium text-gray-800 truncate">{t.name}</span>
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">{t.role}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <span className={`text-xs font-semibold ${t.obsCount === 0 ? 'text-gray-300' : 'text-gray-700'}`}>{t.obsCount}</span>
+                  <span className="text-[10px] text-gray-400">{daysAgoLabel(t.lastObs)}</span>
+                </div>
+              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${t.obsCount === 0 ? 'bg-gray-200' : 'bg-blue-500'}`} style={{ width: `${Math.round(t.obsCount / maxObs * 100)}%` }} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

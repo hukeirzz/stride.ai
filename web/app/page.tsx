@@ -96,6 +96,35 @@ export default async function HomePage() {
   const newAlertObsWeek    = newAlertObsRes.count ?? 0
   const departedMonth      = departedRes.count ?? 0
 
+  // ── Активность педагогов за 30 дней (по всей школе, для всех сотрудников) ──
+  const [staffRes, staffObs30dRes] = await Promise.all([
+    supabase.from('users')
+      .select('id, full_name, role').eq('school_id', schoolId)
+      .in('role', ['deputy', 'class_teacher', 'teacher', 'psychologist', 'nurse', 'security']),
+    supabase.from('observations')
+      .select('author_id, created_at, students!inner(school_id)')
+      .eq('source', 'manual').eq('students.school_id', schoolId).gte('created_at', since30d),
+  ])
+  const TEACHER_ROLE_LABELS: Record<string, string> = {
+    deputy: 'Завуч', class_teacher: 'Кл. рук.', teacher: 'Учитель',
+    psychologist: 'Психолог', nurse: 'Медсестра', security: 'Охрана',
+  }
+  const teacherObs30d: Record<string, { total: number; lastObs: string }> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const o of (staffObs30dRes.data ?? []) as any[]) {
+    const a = o.author_id as string
+    if (!teacherObs30d[a]) teacherObs30d[a] = { total: 0, lastObs: o.created_at }
+    teacherObs30d[a].total++
+    if (o.created_at > teacherObs30d[a].lastObs) teacherObs30d[a].lastObs = o.created_at
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const teacherStats = ((staffRes.data ?? []) as any[]).map((u) => ({
+    name: u.full_name as string,
+    role: TEACHER_ROLE_LABELS[u.role as string] ?? (u.role as string),
+    obsCount: teacherObs30d[u.id]?.total ?? 0,
+    lastObs: teacherObs30d[u.id]?.lastObs ?? null,
+  })).sort((a, b) => b.obsCount - a.obsCount)
+
   const stats = {
     students: studentsRes.count ?? 0,
     alerts: alertCount,
@@ -190,6 +219,7 @@ export default async function HomePage() {
         newObsWeek={newObsWeek}
         newAlertObsWeek={newAlertObsWeek}
         aiRecommendations={aiRecommendations}
+        teacherStats={teacherStats}
       />
     </DashboardShell>
   )
