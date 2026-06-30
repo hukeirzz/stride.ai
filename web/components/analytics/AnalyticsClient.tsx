@@ -186,7 +186,7 @@ export function AnalyticsClient({
                   />
                 </PieChart>
               </div>
-              <div className="w-full sm:flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              <div className="w-full sm:flex-1 grid grid-cols-1 gap-y-2">
                 {goalsWithColor.map((g) => (
                   <div key={g.name} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
