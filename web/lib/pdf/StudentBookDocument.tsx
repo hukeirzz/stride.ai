@@ -63,19 +63,40 @@ const styles = StyleSheet.create({
   twoCol: { flexDirection: 'row', gap: 16 },
   col: { flex: 1 },
 
-  // cover
-  cover: { fontFamily: 'PTSans', backgroundColor: NAVY, color: '#FFFFFF', paddingHorizontal: 52, paddingVertical: 56, height: '100%' },
-  coverBrand: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
-  coverTitle: { fontSize: 40, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 1.05, marginTop: 36 },
-  coverYear: { fontSize: 13, color: '#9DB6E8', marginTop: 10 },
-  coverPhotoWrap: { alignItems: 'center', marginTop: 'auto' },
-  coverPhoto: { width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#FFFFFF', objectFit: 'cover' },
-  coverPhotoFallback: { width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#FFFFFF', backgroundColor: '#3B6FD4', alignItems: 'center', justifyContent: 'center' },
-  coverInitials: { fontSize: 40, fontWeight: 'bold', color: '#FFFFFF' },
-  coverName: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginTop: 18, textAlign: 'center' },
-  coverSub: { fontSize: 11, color: '#9DB6E8', marginTop: 6, textAlign: 'center' },
-  coverFooter: { marginTop: 'auto', flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#33508A', paddingTop: 12 },
-  coverFootText: { fontSize: 9, color: '#9DB6E8' },
+  // ── Обложка / финальная страница (светлый минимализм) ──
+  coverPage: { fontFamily: 'PTSans', backgroundColor: '#FFFFFF', paddingHorizontal: 50, paddingTop: 46, paddingBottom: 40, height: '100%', position: 'relative' },
+
+  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  schoolChip: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 260 },
+  schoolLogo: { width: 30, height: 30, borderRadius: 15, objectFit: 'cover' },
+  schoolLogoPh: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#E5E5E5' },
+  schoolNameTop: { fontSize: 11, fontWeight: 'bold', color: INK },
+  strideLogo: { height: 22, width: 76, objectFit: 'contain' },
+  deco: { position: 'absolute', top: 96, right: -46, width: 320, height: 364 },
+  leftEdge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, backgroundColor: '#0B0B0D' },
+
+  tagline: { fontSize: 12, color: '#4B5563', marginTop: 40 },
+  divider: { width: 120, height: 1, backgroundColor: '#111113', marginTop: 22 },
+
+  bigTitle: { fontSize: 54, fontWeight: 'bold', color: '#0B0B0D', lineHeight: 1.02, letterSpacing: 1, marginTop: 46 },
+  yearText: { fontSize: 13, fontWeight: 'bold', color: '#4B5563', marginTop: 14 },
+
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: 22, marginTop: 46 },
+  personPhoto: { width: 96, height: 96, borderRadius: 48, objectFit: 'cover', borderWidth: 1, borderColor: LINE },
+  personPhotoPh: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#E5E5E5', alignItems: 'center', justifyContent: 'center' },
+  personInit: { fontSize: 30, fontWeight: 'bold', color: '#9CA3AF' },
+  personName: { fontSize: 22, fontWeight: 'bold', color: '#0B0B0D' },
+  personClass: { fontSize: 13, color: '#6B7280', marginTop: 3 },
+
+  coverFoot: { marginTop: 'auto', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  footLabel: { fontSize: 8, color: MUTED, textTransform: 'uppercase', letterSpacing: 1.2 },
+  footDate: { fontSize: 9, color: MUTED },
+
+  // финальная страница
+  quoteMark: { fontSize: 72, fontWeight: 'bold', color: '#0B0B0D', lineHeight: 1, marginTop: 60 },
+  quoteText: { fontSize: 26, fontWeight: 'bold', color: '#0B0B0D', lineHeight: 1.25, marginTop: 6 },
+  thanks: { fontSize: 12, fontWeight: 'bold', color: '#111113' },
+  thanksSub: { fontSize: 11, color: '#6B7280', marginTop: 2 },
 
   // observations
   obs: { flexDirection: 'row', marginBottom: 12 },
@@ -98,6 +119,23 @@ const styles = StyleSheet.create({
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
+// Декоративные ленты Stride — готовая картинка с мягкой тенью (react-pdf сам тень не умеет)
+function DecoBars() {
+  return <Image src="/pdf/deco-bars.png" style={styles.deco} />
+}
+
+function CoverHeader({ data }: { data: BookData }) {
+  return (
+    <View style={styles.brandRow}>
+      <View style={styles.schoolChip}>
+        {data.schoolLogoUrl ? <Image src={data.schoolLogoUrl} style={styles.schoolLogo} /> : <View style={styles.schoolLogoPh} />}
+        <Text style={styles.schoolNameTop}>{data.schoolName || 'Название школы'}</Text>
+      </View>
+      <Image src="/pdf/stride-logo.png" style={styles.strideLogo} />
+    </View>
+  )
 }
 
 function Header({ title }: { title: string }) {
@@ -143,24 +181,30 @@ export function StudentBookDocument({ data }: { data: BookData }) {
   return (
     <Document title={`Книга ученика — ${data.fullName}`} author="stride.ai">
       {/* ── Обложка ── */}
-      <Page size="A4" style={styles.cover}>
-        <Text style={styles.coverBrand}>stride.ai</Text>
-        <Text style={styles.coverTitle}>Книга{'\n'}ученика</Text>
-        <Text style={styles.coverYear}>{data.schoolYear}–{data.schoolYear + 1} учебный год</Text>
+      <Page size="A4" style={styles.coverPage}>
+        <View style={styles.leftEdge} fixed />
+        <DecoBars />
+        <CoverHeader data={data} />
 
-        <View style={styles.coverPhotoWrap}>
+        <Text style={styles.tagline}>Будущее начинается с понимания.</Text>
+        <View style={styles.divider} />
+
+        <Text style={styles.bigTitle}>КНИГА{'\n'}УЧЕНИКА</Text>
+        <Text style={styles.yearText}>{data.schoolYear}–{data.schoolYear + 1} учебный год</Text>
+
+        <View style={styles.personRow}>
           {data.photoUrl
-            ? <Image style={styles.coverPhoto} src={data.photoUrl} />
-            : <View style={styles.coverPhotoFallback}><Text style={styles.coverInitials}>{initials(data.fullName)}</Text></View>}
-          <Text style={styles.coverName}>{data.fullName}</Text>
-          <Text style={styles.coverSub}>
-            {data.className} класс{data.schoolName ? `  ·  ${data.schoolName}` : ''}
-          </Text>
+            ? <Image style={styles.personPhoto} src={data.photoUrl} />
+            : <View style={styles.personPhotoPh}><Text style={styles.personInit}>{initials(data.fullName)}</Text></View>}
+          <View>
+            <Text style={styles.personName}>{data.fullName}</Text>
+            <Text style={styles.personClass}>{data.className} класс</Text>
+          </View>
         </View>
 
-        <View style={styles.coverFooter}>
-          <Text style={styles.coverFootText}>Профиль развития ученика</Text>
-          <Text style={styles.coverFootText}>Сформировано {data.generatedAt}</Text>
+        <View style={styles.coverFoot}>
+          <Text style={styles.footLabel}>Профиль развития ученика</Text>
+          <Text style={styles.footDate}>{data.generatedAt}</Text>
         </View>
       </Page>
 
@@ -265,6 +309,25 @@ export function StudentBookDocument({ data }: { data: BookData }) {
         )}
 
         <Footer />
+      </Page>
+
+      {/* ── Финальная страница ── */}
+      <Page size="A4" style={styles.coverPage}>
+        <View style={styles.leftEdge} fixed />
+        <DecoBars />
+        <CoverHeader data={data} />
+
+        <Text style={styles.quoteMark}>“</Text>
+        <Text style={styles.quoteText}>Сегодня — профиль ученика.{'\n'}Завтра — история его успеха.</Text>
+        <View style={[styles.divider, { marginTop: 26 }]} />
+
+        <View style={styles.coverFoot}>
+          <View>
+            <Text style={styles.thanks}>Спасибо за доверие.</Text>
+            <Text style={styles.thanksSub}>Вместе мы создаём будущее.</Text>
+          </View>
+          <Text style={styles.footDate}>{data.generatedAt}</Text>
+        </View>
       </Page>
     </Document>
   )

@@ -1,5 +1,6 @@
 'use server'
 
+import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import type { BookData, BookObservation } from '@/lib/pdf/types'
 
@@ -9,6 +10,21 @@ function clean(v: unknown): string | null {
   const s = typeof v === 'string' ? v.trim() : ''
   if (!s || s === NO_DATA) return null
   return s
+}
+
+// Скачиваем картинку на сервере, конвертируем в PNG (react-pdf не умеет webp!) и
+// отдаём как data URI — тогда логотип школы и фото всегда встроены и отображаются.
+async function toDataUri(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const input = Buffer.from(await res.arrayBuffer())
+    const png = await sharp(input).png().toBuffer()
+    return `data:image/png;base64,${png.toString('base64')}`
+  } catch {
+    return null
+  }
 }
 
 export async function getStudentBookData(studentId: string): Promise<{ data?: BookData; error?: string }> {
@@ -35,7 +51,7 @@ export async function getStudentBookData(studentId: string): Promise<{ data?: Bo
       .select('overview, interests, academic, extracurricular, achievements, psychology')
       .eq('student_id', studentId)
       .maybeSingle(),
-    supabase.from('schools').select('name, school_year').eq('id', student.school_id).single(),
+    supabase.from('schools').select('name, school_year, logo_url').eq('id', student.school_id).single(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,11 +71,18 @@ export async function getStudentBookData(studentId: string): Promise<{ data?: Bo
     .map(([category, count]) => ({ category, count }))
     .sort((a, b) => b.count - a.count)
 
+  // Встраиваем картинки как data URI (сервер качает — без CORS/промахов на клиенте)
+  const [photoUrl, schoolLogoUrl] = await Promise.all([
+    toDataUri(student.photo_url),
+    toDataUri((school as { logo_url?: string | null } | null)?.logo_url),
+  ])
+
   const data: BookData = {
     fullName: student.full_name,
-    photoUrl: student.photo_url ?? null,
+    photoUrl,
     className,
     schoolName: school?.name ?? '',
+    schoolLogoUrl,
     schoolYear: school?.school_year ?? new Date().getFullYear(),
     generatedAt: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
 

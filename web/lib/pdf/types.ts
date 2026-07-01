@@ -22,6 +22,7 @@ export interface BookData {
   photoUrl: string | null
   className: string
   schoolName: string
+  schoolLogoUrl: string | null
   schoolYear: number
   generatedAt: string
 
