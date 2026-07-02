@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, GraduationCap, Search, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, GraduationCap, Pencil, Search, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { deleteStudent, deleteClass, graduateClass } from '@/app/(dashboard)/students/actions'
+import { deleteStudent, deleteClass, graduateClass, updateClass } from '@/app/(dashboard)/students/actions'
 import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Student {
@@ -22,6 +22,7 @@ interface ClassGroup {
   id: string
   name: string
   grade: number
+  letter: string
   students: Student[]
 }
 
@@ -60,6 +61,33 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
   const [selectedReason, setSelectedReason] = useState('')
   const [otherText, setOtherText] = useState('')
   const [showMinus, setShowMinus] = useState(false)
+
+  const [editModal, setEditModal] = useState<{ classId: string; name: string } | null>(null)
+  const [editGrade, setEditGrade] = useState('')
+  const [editLetter, setEditLetter] = useState('')
+
+  function openEditModal(cls: ClassGroup) {
+    setEditModal({ classId: cls.id, name: cls.name })
+    setEditGrade(cls.grade ? String(cls.grade) : '')
+    setEditLetter(cls.letter ?? '')
+  }
+
+  async function confirmEdit() {
+    if (!editModal) return
+    const g = parseInt(editGrade)
+    const l = editLetter.trim()
+    if (!g || !l) return
+    setLoadingId(editModal.classId)
+    setError(null)
+    const res = await updateClass(editModal.classId, g, l)
+    if (res.error) {
+      setError(res.error)
+    } else {
+      setClasses((prev) => prev.map((c) => c.id === editModal.classId ? { ...c, name: `${g}${l}`, grade: g, letter: l } : c))
+      setEditModal(null)
+    }
+    setLoadingId(null)
+  }
 
   const totalCount = classes.reduce((sum, cls) => sum + cls.students.length, 0)
 
@@ -216,6 +244,9 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                     <td className="px-4 py-3.5 sm:px-5 sm:py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       {canDelete && (
                         <div className="flex items-center justify-end gap-1 sm:opacity-0 sm:group-hover/cls:opacity-100">
+                          <button onClick={() => openEditModal(cls)} disabled={loadingId === cls.id} title={t('stud.editClass')} className="p-1.5 text-gray-400 hover:text-blue-500 active:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+                            <Pencil className="w-4 h-4" />
+                          </button>
                           {(cls.grade === 11 || cls.grade === 12) && (
                             <button onClick={() => handleGraduateClass(cls.id, cls.name)} disabled={loadingId === cls.id} title={t('stud.graduateClass')} className="p-1.5 text-gray-400 hover:text-yellow-500 active:text-yellow-500 hover:bg-yellow-50 rounded-lg transition-all">
                               <GraduationCap className="w-4 h-4" />
@@ -371,6 +402,52 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors"
               >
                 {loadingId === deleteModal.studentId ? t('stud.deleting') : t('stud.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit class modal ── */}
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <button onClick={() => setEditModal(null)} className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">{t('stud.editClass')}</h2>
+            <div className="flex gap-2 mb-2">
+              <select
+                value={editGrade}
+                onChange={(e) => setEditGrade(e.target.value)}
+                className="w-28 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white"
+              >
+                <option value="">{t('stud.grade')}</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <input
+                value={editLetter}
+                onChange={(e) => setEditLetter(e.target.value)}
+                placeholder={t('stud.letterPlaceholder')}
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-gray-400 mb-5">{t('stud.editHint')}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditModal(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={confirmEdit}
+                disabled={!editGrade || !editLetter.trim() || loadingId === editModal.classId}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors"
+              >
+                {loadingId === editModal.classId ? t('stud.saving') : t('stud.save')}
               </button>
             </div>
           </div>

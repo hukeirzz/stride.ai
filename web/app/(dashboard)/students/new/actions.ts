@@ -104,7 +104,9 @@ export async function importFromQuestionnaires(rows: QuestionnaireRow[]): Promis
 
     for (const name of classNames) {
       if (classMap[name]) continue
-      const match = name.match(/^(\d+)(.+)$/)
+      // Ведущие цифры = параллель, остаток = буква (может быть пустым для «10» без секции).
+      // ВАЖНО: (.+) жадно откусывал последнюю цифру у «10» → grade=1, letter=«0». Используем (.*).
+      const match = name.match(/^(\d+)(.*)$/)
       const grade = match ? parseInt(match[1]) : 0
       const letter = match ? match[2].trim() : name
       const type = classTypeMap[name] || null
@@ -285,7 +287,9 @@ export async function importStudents(rows: ImportRow[]): Promise<{ imported: num
 
     for (const name of classNames) {
       if (classMap[name]) continue
-      const match = name.match(/^(\d+)(.+)$/)
+      // Ведущие цифры = параллель, остаток = буква (может быть пустым для «10» без секции).
+      // ВАЖНО: (.+) жадно откусывал последнюю цифру у «10» → grade=1, letter=«0». Используем (.*).
+      const match = name.match(/^(\d+)(.*)$/)
       const grade = match ? parseInt(match[1]) : 0
       const letter = match ? match[2].trim() : name
       const { data: cls } = await supabase

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, HelpCircle, Loader2 } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, HelpCircle, Loader2, ChevronDown, Search } from 'lucide-react'
 import { read, utils } from 'xlsx'
 import { importFromQuestionnaires } from '@/app/(dashboard)/students/new/actions'
 import { cn } from '@/lib/utils'
@@ -209,10 +209,16 @@ function mergeRows(teachers: TeacherRow[], students: StudentRow[], parents: Pare
     if (p?.reaction_criticism)  lines.push(`Реакция на критику: ${p.reaction_criticism}`)
     if (p?.motivation_score)    lines.push(`Мотивация к цели (родитель): ${p.motivation_score}/10`)
 
+    // «Класс» (10) + «Тип класса» (А) → имя класса «10А». Матчинг выше идёт по «сырой»
+    // параллели, поэтому склеиваем только здесь, в финальном результате.
+    const parallel = (t.class_name ?? '').trim()
+    const section  = (t.class_type ?? '').trim()
+    const finalClassName = (/^\d+$/.test(parallel) && section) ? `${parallel}${section}` : parallel
+
     return {
       full_name:        t.full_name,
-      class_name:       t.class_name,
-      class_type:       t.class_type ?? '',
+      class_name:       finalClassName,
+      class_type:       (/^\d+$/.test(parallel) && section) ? '' : section,
       parent_name:      p?.parent_name ?? '',
       parent_phone:     p?.parent_phone ?? '',
       family_situation: p?.family_situation ?? '',
@@ -292,8 +298,8 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
   const usedStudentKeys = new Set(rows.filter(r => r._studentKey).map(r => r._studentKey!))
   const usedParentKeys  = new Set(rows.filter(r => r._parentKey).map(r => r._parentKey!))
 
-  const freeStudents = students.filter(s => !usedStudentKeys.has(s.full_name))
-  const freeParents  = parents.filter(p => !usedParentKeys.has(p.full_name))
+  const freeStudents = students.filter(s => !usedStudentKeys.has(s.full_name)).sort((a, b) => a.full_name.localeCompare(b.full_name, 'ru'))
+  const freeParents  = parents.filter(p => !usedParentKeys.has(p.full_name)).sort((a, b) => a.full_name.localeCompare(b.full_name, 'ru'))
 
   const studentMatched = rows.filter(r => r._hasStudent).length
   const parentMatched  = rows.filter(r => r._hasParent).length
@@ -401,20 +407,12 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
                   <td className="px-4 py-2">
                     {r._hasStudent
                       ? <span className="text-[11px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Совпало</span>
-                      : <select
-                          defaultValue=""
-                          onChange={e => matchStudent(i, e.target.value)}
-                          className="text-xs border border-orange-200 bg-orange-50 text-orange-700 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[160px]"
-                        >
-                          <option value="" disabled>
-                            {freeStudents.length ? 'Выбрать ученика...' : 'Все уже привязаны'}
-                          </option>
-                          {freeStudents.map(s => (
-                            <option key={s.full_name} value={s.full_name}>
-                              {s.full_name || `(без фамилии) кл. ${s.class_name}`}
-                            </option>
-                          ))}
-                        </select>
+                      : <SearchSelect
+                          placeholder="Выбрать ученика..."
+                          emptyLabel="Все уже привязаны"
+                          onSelect={v => matchStudent(i, v)}
+                          options={freeStudents.map(s => ({ value: s.full_name, label: s.full_name || `(без фамилии) кл. ${s.class_name}` }))}
+                        />
                     }
                   </td>
 
@@ -422,20 +420,12 @@ function PreviewTable({ initialRows, students, parents, onConfirm, onBack, loadi
                   <td className="px-4 py-2">
                     {r._hasParent
                       ? <span className="text-[11px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Совпало</span>
-                      : <select
-                          defaultValue=""
-                          onChange={e => matchParent(i, e.target.value)}
-                          className="text-xs border border-orange-200 bg-orange-50 text-orange-700 rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[160px]"
-                        >
-                          <option value="" disabled>
-                            {freeParents.length ? 'Выбрать родителя...' : 'Все уже привязаны'}
-                          </option>
-                          {freeParents.map(p => (
-                            <option key={p.full_name} value={p.full_name}>
-                              {p.full_name} {p.parent_name ? `(${p.parent_name})` : ''}
-                            </option>
-                          ))}
-                        </select>
+                      : <SearchSelect
+                          placeholder="Выбрать родителя..."
+                          emptyLabel="Все уже привязаны"
+                          onSelect={v => matchParent(i, v)}
+                          options={freeParents.map(p => ({ value: p.full_name, label: `${p.full_name}${p.parent_name ? ` (${p.parent_name})` : ''}` }))}
+                        />
                     }
                   </td>
 
@@ -506,6 +496,72 @@ const ZONES: Record<'teacher' | 'student' | 'parent', ZoneConfig> = {
     accent:   'text-teal-600',
     accentBg: 'bg-teal-50 border-teal-200',
   },
+}
+
+// Компактный выпадающий список с поиском по ФИО (замена нативного select)
+function SearchSelect({ options, placeholder, emptyLabel, onSelect }: {
+  options: { value: string; label: string }[]
+  placeholder: string
+  emptyLabel: string
+  onSelect: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [])
+
+  const filtered = q.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(q.trim().toLowerCase()))
+    : options
+
+  return (
+    <div ref={ref} className="relative w-[170px]">
+      <button
+        type="button"
+        onClick={() => options.length && setOpen(o => !o)}
+        disabled={options.length === 0}
+        className="w-full flex items-center justify-between gap-1 text-xs border border-orange-200 bg-orange-50 text-orange-700 rounded-lg px-2 py-1 outline-none cursor-pointer disabled:cursor-default disabled:opacity-70"
+      >
+        <span className="truncate">{selected ?? (options.length ? placeholder : emptyLabel)}</span>
+        {options.length > 0 && <ChevronDown className="w-3 h-3 flex-shrink-0" />}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-60 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2.5 border-b border-gray-100">
+            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Поиск по ФИО..."
+              autoFocus
+              className="w-full py-2 text-xs outline-none"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.map((o, idx) => (
+              <button
+                key={o.value + idx}
+                type="button"
+                onClick={() => { setSelected(o.label); onSelect(o.value); setOpen(false); setQ('') }}
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-orange-50 truncate"
+              >
+                {o.label}
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">Ничего не найдено</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface DropZoneProps {

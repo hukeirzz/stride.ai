@@ -61,6 +61,33 @@ export async function graduateClass(classId: string): Promise<{ error?: string }
   return {}
 }
 
+export async function updateClass(classId: string, grade: number, letter: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Не авторизован' }
+
+  const { data: profile } = await supabase
+    .from('users').select('role').eq('id', user.id).single()
+
+  if (!['admin', 'deputy', 'manager'].includes(profile?.role ?? ''))
+    return { error: 'Нет прав для изменения класса' }
+
+  const g = Math.trunc(grade)
+  const l = (letter ?? '').trim()
+  if (!g || !l) return { error: 'Укажите параллель и букву' }
+
+  // Обновляем класс на месте — ученики ссылаются по class_id, их класс обновится сам
+  const { error } = await supabase.from('classes')
+    .update({ name: `${g}${l}`, grade: g, letter: l })
+    .eq('id', classId)
+  if (error) return { error: 'Не удалось изменить класс' }
+
+  revalidatePath('/students')
+  revalidatePath('/')
+  revalidatePath('/analytics')
+  return {}
+}
+
 export async function deleteClass(classId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
