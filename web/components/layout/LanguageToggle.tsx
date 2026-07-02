@@ -1,19 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n/I18nProvider'
-import { LANG_COOKIE, LOCALES, type Locale } from '@/lib/i18n/config'
+import { LOCALES } from '@/lib/i18n/config'
 import { cn } from '@/lib/utils'
 
 export function LanguageToggle() {
-  const { locale } = useI18n()
-  const router = useRouter()
-
-  function setLocale(l: Locale) {
-    if (l === locale) return
-    document.cookie = `${LANG_COOKIE}=${l}; path=/; max-age=31536000; samesite=lax`
-    router.refresh()
-  }
+  const { locale, setLocale } = useI18n()
 
   return (
     <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
