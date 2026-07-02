@@ -18,8 +18,8 @@ export default async function AnalyticsPage() {
     'Колледж': '#10B981', 'Другое': '#6B7280',
   }
 
-  // ── Batch 1: structure-level data ──────────────────────────────────────────
-  const [studentsRes, departedRes, classesRes, noRecentObsRes] = await Promise.all([
+  // ── Batch 1: всё, что зависит только от schoolId (структура + цели + AI-отчёт) ──
+  const [studentsRes, departedRes, classesRes, noRecentObsRes, parentGoalRes, aiReportRes] = await Promise.all([
     supabase.from('students')
       .select('id, full_name, risk_level, class_id, class:classes(name)')
       .eq('school_id', schoolId).eq('status', 'active'),
@@ -30,6 +30,13 @@ export default async function AnalyticsPage() {
     schoolId
       ? supabase.rpc('get_students_no_recent_obs', { p_school_id: schoolId })
       : Promise.resolve({ data: [] }),
+    supabase.from('students')
+      .select('parent_goal')
+      .eq('school_id', schoolId).eq('status', 'active')
+      .not('parent_goal', 'is', null).neq('parent_goal', ''),
+    supabase.from('school_ai_reports')
+      .select('climate, at_risk_classes, trends, recommendations, month, generated_at')
+      .eq('school_id', schoolId).order('month', { ascending: false }).limit(1).maybeSingle(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,15 +129,8 @@ export default async function AnalyticsPage() {
     return ag !== bg ? bg - ag : al.localeCompare(bl)
   })
 
-  // ── Parent goals ──────────────────────────────────────────────────────────
-  const { data: parentGoalRows } = await supabase
-    .from('students')
-    .select('parent_goal')
-    .eq('school_id', schoolId)
-    .eq('status', 'active')
-    .not('parent_goal', 'is', null)
-    .neq('parent_goal', '')
-
+  // ── Parent goals (данные уже в Batch 1) ────────────────────────────────────
+  const parentGoalRows = parentGoalRes.data ?? []
   const goalCounts: Record<string, number> = {}
   for (const row of parentGoalRows ?? []) {
     const raw = (row.parent_goal as string | null)?.trim() ?? ''
@@ -147,14 +147,8 @@ export default async function AnalyticsPage() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 12)
 
-  // ── AI school report (most recent) ───────────────────────────────────────
-  const { data: aiReport } = await supabase
-    .from('school_ai_reports')
-    .select('climate, at_risk_classes, trends, recommendations, month, generated_at')
-    .eq('school_id', schoolId)
-    .order('month', { ascending: false })
-    .limit(1)
-    .single()
+  // ── AI school report (данные уже в Batch 1) ──────────────────────────────
+  const aiReport = aiReportRes.data ?? null
 
   return (
     <div className="p-4 sm:p-8">

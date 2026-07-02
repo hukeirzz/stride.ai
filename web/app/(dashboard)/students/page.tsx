@@ -15,32 +15,30 @@ export default async function StudentsPage() {
   const canAddStudent = ['admin', 'deputy', 'class_teacher', 'manager'].includes(profile?.role ?? '')
   const canDelete = ['admin', 'deputy', 'manager'].includes(profile?.role ?? '')
 
-  const { data: classes } = await supabase
-    .from('classes')
-    .select('id, name, grade, letter')
-    .eq('school_id', profile?.school_id ?? '')
-    .order('grade', { ascending: false })
-    .order('letter', { ascending: true })
-
-  const { data: students } = await supabase
-    .from('students')
-    .select('id, full_name, risk_level, status, class_id, photo_url')
-    .eq('school_id', profile?.school_id ?? '')
-    .eq('status', 'active')
-    .order('full_name')
-
   const schoolId = profile?.school_id ?? ''
 
-  // Fetch observation counts + no-recent-obs (14-day rule) in parallel
-  const studentIds = (students ?? []).map((s) => s.id)
-  const [obsResult, noRecentObsRes] = await Promise.all([
-    studentIds.length > 0
-      ? supabase.from('observations').select('student_id, is_alert').eq('source', 'manual').in('student_id', studentIds)
-      : Promise.resolve({ data: [] as { student_id: string; is_alert: boolean }[] }),
+  // classes / students / no-recent-obs зависят только от schoolId → один параллельный батч
+  const [{ data: classes }, { data: students }, noRecentObsRes] = await Promise.all([
+    supabase.from('classes')
+      .select('id, name, grade, letter')
+      .eq('school_id', schoolId)
+      .order('grade', { ascending: false })
+      .order('letter', { ascending: true }),
+    supabase.from('students')
+      .select('id, full_name, risk_level, status, class_id, photo_url')
+      .eq('school_id', schoolId)
+      .eq('status', 'active')
+      .order('full_name'),
     schoolId
       ? supabase.rpc('get_students_no_recent_obs', { p_school_id: schoolId })
       : Promise.resolve({ data: [] }),
   ])
+
+  // Observation counts зависят от списка учеников → отдельная волна
+  const studentIds = (students ?? []).map((s) => s.id)
+  const obsResult = studentIds.length > 0
+    ? await supabase.from('observations').select('student_id, is_alert').eq('source', 'manual').in('student_id', studentIds)
+    : { data: [] as { student_id: string; is_alert: boolean }[] }
 
   const obsMap: Record<string, { total: number; alerts: number }> = {}
   for (const o of obsResult.data ?? []) {

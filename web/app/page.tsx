@@ -61,14 +61,6 @@ export default async function HomePage() {
     ? supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual').in('student_id', obsStudentIds)
     : supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual')
 
-  const [studentsRes, observationsRes, riskRes, classesRes, noRecentObsRes] = await Promise.all([
-    studentFilter,
-    obsCountQuery,
-    riskFilter,
-    supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
-    schoolId ? supabase.rpc('get_students_no_recent_obs', { p_school_id: schoolId }) : Promise.resolve({ data: [] }),
-  ])
-
   // Alerts + full observations feed — both scoped via obsStudentIds
   const alertQuery = obsStudentIds.length > 0
     ? supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual').eq('is_alert', true).in('student_id', obsStudentIds)
@@ -78,12 +70,6 @@ export default async function HomePage() {
     ? supabase.from('observations').select(obsSelect).eq('source', 'manual').in('student_id', obsStudentIds).order('created_at', { ascending: false })
     : supabase.from('observations').select(obsSelect).eq('source', 'manual').order('created_at', { ascending: false })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [alertRes, obsDataRes] = await Promise.all([alertQuery, obsDataQuery]) as any[]
-  const alertCount = alertRes.count ?? 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recentObsData = obsDataRes.data ?? []
-
   const now = new Date()
   const since30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const since7d  = new Date(now.getTime() -  7 * 24 * 60 * 60 * 1000).toISOString()
@@ -92,29 +78,51 @@ export default async function HomePage() {
     ? supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual').in('student_id', obsStudentIds)
     : supabase.from('observations').select('id', { count: 'exact', head: true }).eq('source', 'manual')
 
-  const [newStudentsRes, newObsRes, newAlertObsRes, departedRes] = await Promise.all([
+  // Один общий параллельный батч вместо пяти последовательных «волн»: все эти
+  // запросы зависят лишь от schoolId / obsStudentIds, которые уже известны здесь.
+  // Раньше это были 5 отдельных await-групп подряд → ~5 сетевых round-trip'ов к
+  // Supabase на каждый переход. Теперь — один.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [
+    studentsRes, observationsRes, riskRes, classesRes, noRecentObsRes,
+    alertRes, obsDataRes,
+    newStudentsRes, newObsRes, newAlertObsRes, departedRes,
+    staffRes, staffObs30dRes,
+    aiReportRes,
+  ] = await Promise.all([
+    studentFilter,
+    obsCountQuery,
+    riskFilter,
+    supabase.from('classes').select('id, name').eq('school_id', schoolId).order('name'),
+    schoolId ? supabase.rpc('get_students_no_recent_obs', { p_school_id: schoolId }) : Promise.resolve({ data: [] }),
+    alertQuery,
+    obsDataQuery,
     supabase.from('students').select('id', { count: 'exact', head: true })
       .eq('school_id', schoolId).eq('status', 'active').gte('created_at', since30d),
     makeObsQ().gte('created_at', since7d),
     makeObsQ().eq('is_alert', true).gte('created_at', since7d),
     supabase.from('students').select('id', { count: 'exact', head: true })
       .eq('school_id', schoolId).eq('status', 'departed').gte('created_at', since30d),
-  ])
-
-  const newStudentsMonth   = newStudentsRes.count ?? 0
-  const newObsWeek         = newObsRes.count ?? 0
-  const newAlertObsWeek    = newAlertObsRes.count ?? 0
-  const departedMonth      = departedRes.count ?? 0
-
-  // ── Активность педагогов за 30 дней (по всей школе, для всех сотрудников) ──
-  const [staffRes, staffObs30dRes] = await Promise.all([
     supabase.from('users')
       .select('id, full_name, role').eq('school_id', schoolId)
       .in('role', ['deputy', 'class_teacher', 'teacher', 'psychologist', 'nurse', 'security']),
     supabase.from('observations')
       .select('author_id, created_at, students!inner(school_id)')
       .eq('source', 'manual').eq('students.school_id', schoolId).gte('created_at', since30d),
-  ])
+    (canViewAnalytics && schoolId)
+      ? supabase.from('school_ai_reports').select('recommendations').eq('school_id', schoolId).order('month', { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ]) as any[]
+
+  const alertCount = alertRes.count ?? 0
+  const recentObsData = obsDataRes.data ?? []
+  const newStudentsMonth   = newStudentsRes.count ?? 0
+  const newObsWeek         = newObsRes.count ?? 0
+  const newAlertObsWeek    = newAlertObsRes.count ?? 0
+  const departedMonth      = departedRes.count ?? 0
+
+  // ── Активность педагогов за 30 дней (по всей школе, для всех сотрудников) ──
   const teacherObs30d: Record<string, { total: number; lastObs: string }> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const o of (staffObs30dRes.data ?? []) as any[]) {
@@ -186,18 +194,9 @@ export default async function HomePage() {
     noRecentObs = noRecentObs.filter((r: { id: string }) => classStudentIds!.includes(r.id))
   }
 
-  // AI school report — only for admin, deputy, manager
-  let aiRecommendations: string | null = null
-  if (canViewAnalytics && schoolId) {
-    const { data: aiReport } = await supabase
-      .from('school_ai_reports')
-      .select('recommendations')
-      .eq('school_id', schoolId)
-      .order('month', { ascending: false })
-      .limit(1)
-      .single()
-    aiRecommendations = aiReport?.recommendations ?? null
-  }
+  // AI school report — уже получен в общем батче выше (только для admin/deputy/manager)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const aiRecommendations: string | null = (aiReportRes as any)?.data?.recommendations ?? null
 
   return (
     <DashboardShell>
