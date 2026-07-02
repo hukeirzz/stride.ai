@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { Download, Printer, Share2, BookOpen, X, Loader2 } from 'lucide-react'
 import { getStudentBookData } from '@/app/(dashboard)/student-book/actions'
 import type { BookData } from '@/lib/pdf/types'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 const BookPreview = dynamic(
   () => import('@/components/pdf/StudentBookPreview').then((m) => m.StudentBookPreview),
@@ -16,14 +17,10 @@ const BookPreview = dynamic(
 interface ClassItem { id: string; name: string }
 interface StudentItem { id: string; full_name: string; class_id: string; photo_url?: string | null }
 
-const CONTENTS = [
-  'Обложка',
-  'Общий профиль и цели',
-  'Аналитические сводки по разделам',
-  'Наблюдения учителей',
-]
+const CONTENTS = ['book.cover', 'book.profile', 'book.summaries', 'book.observations']
 
 export function StudentBookClient({ classes, students }: { classes: ClassItem[]; students: StudentItem[] }) {
+  const { t } = useI18n()
   const [classId, setClassId] = useState('')
   const [studentId, setStudentId] = useState('')
   const [search, setSearch] = useState('')
@@ -42,7 +39,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     getStudentBookData(studentId)
       .then((res) => {
         if (cancelled) return
-        if (res.error || !res.data) setGenError(res.error ?? 'Не удалось получить данные')
+        if (res.error || !res.data) setGenError(res.error ?? t('book.errData'))
         else setBookData(res.data)
       })
       .finally(() => { if (!cancelled) setPreviewLoading(false) })
@@ -80,7 +77,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     let data = bookData
     if (!data) {
       const res = await getStudentBookData(studentId)
-      if (res.error || !res.data) { setGenError(res.error ?? 'Не удалось получить данные'); return null }
+      if (res.error || !res.data) { setGenError(res.error ?? t('book.errData')); return null }
       data = res.data
     }
     const { generateBookBlob } = await import('@/lib/pdf/StudentBookDocument')
@@ -96,13 +93,13 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
       if (blob) await action(blob)
     } catch (e) {
       console.error(e)
-      setGenError('Не удалось сформировать PDF')
+      setGenError(t('book.errPdf'))
     } finally {
       setBusy(null)
     }
   }
 
-  const fileName = () => `Книга ученика — ${selectedStudent?.full_name ?? ''}.pdf`
+  const fileName = () => `${t('book.title')} — ${selectedStudent?.full_name ?? ''}.pdf`
 
   function handleDownload() {
     run('download', (blob) => {
@@ -133,7 +130,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const nav = navigator as any
       if (nav.canShare && nav.canShare({ files: [file] })) {
-        try { await nav.share({ files: [file], title: 'Книга ученика' }) } catch { /* пользователь отменил */ }
+        try { await nav.share({ files: [file], title: t('book.title') }) } catch { /* пользователь отменил */ }
       } else {
         // запасной вариант — скачивание
         const url = URL.createObjectURL(blob)
@@ -149,8 +146,8 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Книга ученика</h1>
-        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Автоматически сформированный профиль · PDF формат</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t('book.title')}</h1>
+        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">{t('book.subtitle')}</p>
       </div>
 
       {/* Controls bar */}
@@ -158,25 +155,25 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <BookOpen className="hidden sm:block w-4 h-4 text-gray-400 flex-shrink-0" />
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 whitespace-nowrap">Класс:</span>
+            <span className="text-sm text-gray-500 whitespace-nowrap">{t('book.classLabel')}</span>
             <select
               value={classId}
               onChange={(e) => { setClassId(e.target.value); setStudentId('') }}
               className="flex-1 px-2.5 py-2 sm:py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-blue-100 bg-white"
             >
-              <option value="">Все классы</option>
+              <option value="">{t('obs.allClasses')}</option>
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 whitespace-nowrap">Ученик:</span>
+            <span className="text-sm text-gray-500 whitespace-nowrap">{t('book.studentLabel')}</span>
             <div ref={comboRef} className="relative flex-1">
               <div className="flex items-center border border-gray-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-100">
                 <input
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setStudentId(''); setOpen(true) }}
                   onFocus={() => setOpen(true)}
-                  placeholder="Поиск по имени..."
+                  placeholder={t('book.searchName')}
                   className="px-2.5 py-2 sm:py-1.5 text-sm outline-none bg-transparent flex-1 min-w-0 w-full"
                 />
                 {search && (
@@ -208,7 +205,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
                 className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy === 'print' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-                Печать
+                {t('book.print')}
               </button>
               <button
                 onClick={handleShare}
@@ -216,7 +213,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
                 className="flex items-center gap-1.5 text-sm text-gray-600 px-3 py-2 sm:py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy === 'share' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                Поделиться
+                {t('book.share')}
               </button>
               <button
                 onClick={handleDownload}
@@ -224,11 +221,11 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
                 className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 text-sm text-white bg-[#2563EB] hover:bg-[#1D4ED8] px-4 py-2 sm:py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {busy === 'download' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Скачать
+                {t('book.download')}
               </button>
             </div>
           ) : (
-            <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">Выберите ученика</span>
+            <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">{t('book.selectStudent')}</span>
           )}
         </div>
       </div>
@@ -247,7 +244,7 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
                 <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
                   <BookOpen className="w-6 h-6 text-gray-300" />
                 </div>
-                <p className="text-sm text-gray-400">Выберите ученика для предпросмотра</p>
+                <p className="text-sm text-gray-400">{t('book.selectForPreview')}</p>
               </div>
             </div>
           ) : previewLoading || !bookData ? (
@@ -261,14 +258,14 @@ export function StudentBookClient({ classes, students }: { classes: ClassItem[];
 
         {/* Contents */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-5">Содержание</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-5">{t('book.contents')}</h3>
           <ol className="space-y-4">
-            {CONTENTS.map((item, i) => (
-              <li key={item} className="flex items-center gap-3 text-sm text-gray-700">
+            {CONTENTS.map((key, i) => (
+              <li key={key} className="flex items-center gap-3 text-sm text-gray-700">
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-semibold flex-shrink-0">
                   {i + 1}
                 </span>
-                {item}
+                {t(key)}
               </li>
             ))}
           </ol>

@@ -6,15 +6,8 @@ import { Users, AlertTriangle, Eye, TrendingUp, TrendingDown, Sparkles, Trash2, 
 import { deleteObservation, dismissAlert } from '@/app/(dashboard)/observations/actions'
 import { SchoolYearBadge } from './SchoolYearBadge'
 import { ReactionBar, type ReactionItem } from '@/components/observations/ReactionBar'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  academic: 'Академическое',
-  behavior: 'Поведение',
-  psychology: 'Психология',
-  sport: 'Спорт',
-  creative: 'Творчество',
-  health: 'Здоровье',
-}
+import { useI18n } from '@/lib/i18n/I18nProvider'
+import type { Locale } from '@/lib/i18n/config'
 
 const CATEGORY_COLORS: Record<string, string> = {
   academic: 'bg-blue-100 text-blue-700',
@@ -23,19 +16,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   sport: 'bg-green-100 text-green-700',
   creative: 'bg-orange-100 text-orange-700',
   health: 'bg-red-100 text-red-700',
+  social: 'bg-teal-100 text-teal-700',
 }
 
+type TFn = (key: string, params?: Record<string, string | number>) => string
+const dl = (locale: Locale) => (locale === 'en' ? 'en-US' : 'ru-RU')
 
-
-
-function getGreeting() {
+function getGreeting(t: TFn) {
   const h = new Date().getHours()
-  if (h < 12) return 'Доброе утро'
-  if (h < 18) return 'Добрый день'
-  return 'Добрый вечер'
+  if (h < 12) return t('dash.morning')
+  if (h < 18) return t('dash.day')
+  return t('dash.evening')
 }
 
-function pluralizeObs(n: number): string {
+function pluralizeObs(n: number, locale: Locale): string {
+  if (locale === 'en') return `${n} observation${n === 1 ? '' : 's'}`
   const mod10 = n % 10, mod100 = n % 100
   if (mod100 >= 11 && mod100 <= 14) return `${n} наблюдений`
   if (mod10 === 1) return `${n} наблюдение`
@@ -80,6 +75,7 @@ interface Props {
 }
 
 export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], recentObservations, userName, classes = [], schoolYear = 2026, isAdmin = false, canViewAnalytics = false, classTeacherClassName, currentUserId, defaultClassId = '', newStudentsMonth = 0, departedMonth = 0, newObsWeek = 0, newAlertObsWeek = 0, aiRecommendations = null, teacherStats = [] }: Props) {
+  const { t, locale } = useI18n()
   const [classFilter, setClassFilter] = useState(defaultClassId)
   const [search, setSearch] = useState('')
   const [observations, setObservations] = useState(recentObservations)
@@ -97,7 +93,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
     : null
 
   async function handleDeleteObs(id: string) {
-    if (!confirm('Удалить это наблюдение?')) return
+    if (!confirm(t('dash.confirmDeleteObs'))) return
     const res = await deleteObservation(id)
     if (res.error) { alert(res.error); return }
     setObservations((prev) => prev.filter((o) => o.id !== id))
@@ -121,10 +117,10 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
       <div className="flex items-center justify-between mb-6 sm:mb-8 gap-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-            {getGreeting()}{userName ? `, ${userName}` : ''}!
+            {getGreeting(t)}{userName ? `, ${userName}` : ''}!
           </h1>
           <p className="text-gray-400 text-sm mt-0.5">
-            {classTeacherClassName ? `Аналитика класса ${classTeacherClassName}` : 'Вот, что происходит в школе сегодня'}
+            {classTeacherClassName ? t('dash.classAnalytics', { name: classTeacherClassName }) : t('dash.schoolToday')}
           </p>
         </div>
         <SchoolYearBadge schoolYear={schoolYear} isAdmin={isAdmin} />
@@ -135,35 +131,35 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
         <StatCard
           icon={<Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />}
           iconBg="bg-blue-50"
-          label="Ученики"
+          label={t('dash.students')}
           value={stats.students}
-          trend={newStudentsMonth > 0 ? `+${newStudentsMonth} за месяц` : 'без новых за месяц'}
+          trend={newStudentsMonth > 0 ? t('dash.plusMonth', { n: newStudentsMonth }) : t('dash.noNewMonth')}
           trendColor={newStudentsMonth > 0 ? 'text-green-500' : 'text-gray-400'}
         />
         <StatCard
           icon={<ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />}
           iconBg="bg-red-50"
-          label="Ученики в зоне риска"
-          mobileLabel="Зона риска"
+          label={t('dash.atRisk')}
+          mobileLabel={t('dash.atRiskShort')}
           value={noRecentObs.length}
-          trend="без наблюдений 14д+"
+          trend={t('dash.noObs14')}
           trendColor="text-red-400"
         />
         <StatCard
           icon={<Eye className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600" />}
           iconBg="bg-teal-50"
-          label="Наблюдения"
+          label={t('dash.observations')}
           value={stats.observations}
-          trend={newObsWeek > 0 ? `+${newObsWeek} за неделю` : 'без новых за неделю'}
+          trend={newObsWeek > 0 ? t('dash.plusWeek', { n: newObsWeek }) : t('dash.noNewWeek')}
           trendColor={newObsWeek > 0 ? 'text-green-500' : 'text-gray-400'}
         />
         <StatCard
           icon={<AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />}
           iconBg="bg-orange-50"
-          label="Тревожные наблюдения"
-          mobileLabel="Тревожные"
+          label={t('dash.alertObs')}
+          mobileLabel={t('dash.alertObsShort')}
           value={alertsCount}
-          trend={newAlertObsWeek > 0 ? `+${newAlertObsWeek} за неделю` : 'без новых за неделю'}
+          trend={newAlertObsWeek > 0 ? t('dash.plusWeek', { n: newAlertObsWeek }) : t('dash.noNewWeek')}
           trendColor={newAlertObsWeek > 0 ? 'text-orange-500' : 'text-gray-400'}
         />
       </div>
@@ -174,8 +170,8 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
         <div className={`${canViewAnalytics ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-2xl border border-gray-100 p-4 sm:p-5`}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-gray-900 text-sm">Все наблюдения</h2>
-              <p className="text-xs text-gray-400">{pluralizeObs(observations.length)}</p>
+              <h2 className="font-semibold text-gray-900 text-sm">{t('dash.allObs')}</h2>
+              <p className="text-xs text-gray-400">{pluralizeObs(observations.length, locale)}</p>
             </div>
           </div>
 
@@ -183,7 +179,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по имени..."
+              placeholder={t('dash.searchName')}
               className="flex-1 pl-3 pr-4 py-2 text-sm rounded-lg border border-gray-100 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
             />
             {classes.length > 0 && (
@@ -192,7 +188,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
                 onChange={(e) => setClassFilter(e.target.value)}
                 className="flex-shrink-0 pl-2 pr-6 py-2 text-xs sm:text-sm rounded-lg border border-gray-100 bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Класс</option>
+                <option value="">{t('dash.classSelect')}</option>
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -224,7 +220,7 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
               <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
-              <h2 className="font-semibold text-gray-900 text-sm">AI Выводы за месяц</h2>
+              <h2 className="font-semibold text-gray-900 text-sm">{t('dash.aiMonth')}</h2>
             </div>
 
             {aiRecommendations ? (
@@ -240,14 +236,14 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
                   ))}
               </ul>
             ) : (
-              <p className="text-xs text-gray-400 flex-1">Отчёт появится 1-го числа следующего месяца</p>
+              <p className="text-xs text-gray-400 flex-1">{t('dash.aiSoon')}</p>
             )}
 
             <Link
               href="/analytics"
               className="mt-4 text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
             >
-              Подробнее →
+              {t('dash.more')}
             </Link>
           </div>
         )}
@@ -266,8 +262,8 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-gray-900 text-sm">Тревожные наблюдения</h3>
-              <InfoTooltip text="Наблюдения, отмеченные как тревожные. Требуют внимания классного руководителя или психолога." />
+              <h3 className="font-semibold text-gray-900 text-sm">{t('dash.alertObs')}</h3>
+              <InfoTooltip text={t('dash.alertTooltip')} />
             </div>
             <span className="text-xs text-red-500 font-medium">{alertObs.length}</span>
           </div>
@@ -284,27 +280,27 @@ export function DashboardContent({ stats, riskStudents: _r, noRecentObs = [], re
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <Link href={`/students/${obs.student_id}`} className="text-xs font-medium text-gray-900 truncate hover:text-blue-600 hover:underline transition-colors">{obs.student?.full_name ?? '—'}</Link>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${CATEGORY_COLORS[obs.category] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {CATEGORY_LABELS[obs.category] ?? obs.category}
+                        {t('cat.' + obs.category)}
                       </span>
                     </div>
                     <p className="text-[10px] text-gray-500 line-clamp-2">{obs.content}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">
-                      {obs.author?.full_name ?? '—'} · {new Date(obs.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })}
+                      {obs.author?.full_name ?? '—'} · {new Date(obs.created_at).toLocaleDateString(dl(locale), { day: '2-digit', month: 'short' })}
                     </p>
                   </div>
                   {isAdmin && (
                     <button
                       onClick={() => handleDismissAlert(obs.id)}
-                      title="Снять тревожный статус"
+                      title={t('dash.dismissTitle')}
                       className="opacity-0 group-hover/alert:opacity-100 flex-shrink-0 text-[10px] text-gray-400 hover:text-green-600 hover:bg-green-50 border border-gray-200 hover:border-green-200 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
                     >
-                      Снять
+                      {t('dash.dismiss')}
                     </button>
                   )}
                 </div>
               ))
             ) : (
-              <p className="text-xs text-gray-400 text-center py-4">Тревожных наблюдений нет</p>
+              <p className="text-xs text-gray-400 text-center py-4">{t('dash.noAlertObs')}</p>
             )}
           </div>
         </div>
@@ -354,6 +350,7 @@ function StatCard({
   value: number; trend: string; trendColor?: string
   trend2?: string; trend2Color?: string
 }) {
+  const { locale } = useI18n()
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-3 sm:p-5">
       <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -364,7 +361,7 @@ function StatCard({
           ) : label}
         </span>
       </div>
-      <p className="text-xl sm:text-2xl font-bold text-gray-900">{value.toLocaleString('ru-RU')}</p>
+      <p className="text-xl sm:text-2xl font-bold text-gray-900">{value.toLocaleString(dl(locale))}</p>
       <div className="flex items-center justify-between mt-1 min-w-0">
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           <TrendingUp className={`w-3 h-3 flex-shrink-0 ${trendColor}`} />
@@ -387,6 +384,7 @@ function ObservationRow({ obs, isLastByMe, onDelete, currentUserId }: {
   onDelete?: (id: string) => void
   currentUserId?: string
 }) {
+  const { t, locale } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const isLong = obs.content?.length > 100
   const initials = (obs.student?.full_name ?? '??')
@@ -408,20 +406,20 @@ function ObservationRow({ obs, isLastByMe, onDelete, currentUserId }: {
             </span>
           )}
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CATEGORY_COLORS[obs.category] ?? 'bg-gray-100 text-gray-600'}`}>
-            {CATEGORY_LABELS[obs.category] ?? obs.category}
+            {t('cat.' + obs.category)}
           </span>
           {obs.is_alert && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">Тревога</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">{t('dash.alertChip')}</span>
           )}
         </div>
         <p className={`text-xs text-gray-500 ${!expanded && isLong ? 'line-clamp-2' : ''}`}>{obs.content}</p>
         {isLong && (
           <button onClick={() => setExpanded(p => !p)} className="text-[10px] text-blue-500 hover:text-blue-700 mt-0.5">
-            {expanded ? 'Свернуть' : 'Раскрыть'}
+            {expanded ? t('dash.collapse') : t('dash.expand')}
           </button>
         )}
         <p className="text-[10px] text-gray-500 mt-0.5">
-          {obs.author?.full_name ?? '—'} · {new Date(obs.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })}
+          {obs.author?.full_name ?? '—'} · {new Date(obs.created_at).toLocaleDateString(dl(locale), { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
         {currentUserId && (
           <ReactionBar
@@ -434,7 +432,7 @@ function ObservationRow({ obs, isLastByMe, onDelete, currentUserId }: {
       {isLastByMe && onDelete && (
         <button
           onClick={() => onDelete(obs.id)}
-          title="Удалить наблюдение"
+          title={t('dash.deleteObsTitle')}
           className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -450,18 +448,19 @@ const AVATAR_COLORS = [
 ]
 
 function NoRecentObsCard({ students }: { students: NoRecentObsItem[] }) {
+  const { t, locale } = useI18n()
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-gray-900">Ученики в зоне риска</h2>
-          <InfoTooltip text="Ученики, у которых не было ни одного наблюдения за последние 14 дней." />
+          <h2 className="text-sm font-semibold text-gray-900">{t('dash.atRisk')}</h2>
+          <InfoTooltip text={t('dash.atRiskTooltip')} />
         </div>
         <span className="text-xs text-red-500 font-medium">{students.length}</span>
       </div>
 
       {students.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-4">Все ученики получили наблюдение за последние 14 дней</p>
+        <p className="text-sm text-gray-400 text-center py-4">{t('dash.allGotObs')}</p>
       ) : (
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
           {students.map((s, idx) => {
@@ -469,8 +468,10 @@ function NoRecentObsCard({ students }: { students: NoRecentObsItem[] }) {
             const initials = s.full_name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
             const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length]
             const daysLabel = s.days_since === null
-              ? 'наблюдений нет'
-              : `последнее наблюдение ${s.days_since} ${s.days_since === 1 ? 'день' : s.days_since < 5 ? 'дня' : 'дней'} назад`
+              ? t('dash.noObsRisk')
+              : locale === 'en'
+                ? `last observation ${s.days_since}d ago`
+                : `последнее наблюдение ${s.days_since} ${s.days_since === 1 ? 'день' : s.days_since < 5 ? 'дня' : 'дней'} назад`
 
             return (
               <div key={s.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-gray-50 transition-colors">
@@ -484,7 +485,7 @@ function NoRecentObsCard({ students }: { students: NoRecentObsItem[] }) {
                 <span className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
                   isUrgent ? 'bg-red-50 text-red-500' : 'bg-yellow-50 text-yellow-600'
                 }`}>
-                  {isUrgent ? 'Срочно' : 'Внимание'}
+                  {isUrgent ? t('dash.urgent') : t('dash.attention')}
                 </span>
               </div>
             )
@@ -498,44 +499,45 @@ function NoRecentObsCard({ students }: { students: NoRecentObsItem[] }) {
 function tInitials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
-function daysAgoLabel(dateStr: string | null) {
+function daysAgoLabel(dateStr: string | null, t: TFn, locale: Locale) {
   if (!dateStr) return '—'
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (days === 0) return 'Сегодня'
-  if (days === 1) return 'Вчера'
-  return `${days} дн. назад`
+  if (days === 0) return t('dash.today')
+  if (days === 1) return t('dash.yesterday')
+  return locale === 'en' ? `${days}d ago` : `${days} дн. назад`
 }
 
 function TeacherActivityCard({ stats }: { stats: TeacherStat[] }) {
-  const maxObs = Math.max(...stats.map(t => t.obsCount), 1)
+  const { t, locale } = useI18n()
+  const maxObs = Math.max(...stats.map(s => s.obsCount), 1)
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-semibold text-gray-900">Активность педагогов</h3>
-          <InfoTooltip text="Сколько наблюдений добавил каждый сотрудник за последние 30 дней и как давно было последнее." />
+          <h3 className="text-sm font-semibold text-gray-900">{t('dash.teacherActivity')}</h3>
+          <InfoTooltip text={t('dash.teacherTooltip')} />
         </div>
-        <span className="text-xs text-gray-400">за 30 дней</span>
+        <span className="text-xs text-gray-400">{t('dash.for30days')}</span>
       </div>
       {stats.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-8">Нет данных</p>
+        <p className="text-sm text-gray-400 text-center py-8">{t('dash.noData')}</p>
       ) : (
         <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-          {stats.map(t => (
-            <div key={t.name}>
+          {stats.map(s => (
+            <div key={s.name}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">{tInitials(t.name)}</div>
-                  <span className="text-xs font-medium text-gray-800 truncate">{t.name}</span>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">{t.role}</span>
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">{tInitials(s.name)}</div>
+                  <span className="text-xs font-medium text-gray-800 truncate">{s.name}</span>
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">{t('role.' + s.role)}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                  <span className={`text-xs font-semibold ${t.obsCount === 0 ? 'text-gray-300' : 'text-gray-700'}`}>{t.obsCount}</span>
-                  <span className="text-[10px] text-gray-400">{daysAgoLabel(t.lastObs)}</span>
+                  <span className={`text-xs font-semibold ${s.obsCount === 0 ? 'text-gray-300' : 'text-gray-700'}`}>{s.obsCount}</span>
+                  <span className="text-[10px] text-gray-400">{daysAgoLabel(s.lastObs, t, locale)}</span>
                 </div>
               </div>
               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${t.obsCount === 0 ? 'bg-gray-200' : 'bg-blue-500'}`} style={{ width: `${Math.round(t.obsCount / maxObs * 100)}%` }} />
+                <div className={`h-full rounded-full ${s.obsCount === 0 ? 'bg-gray-200' : 'bg-blue-500'}`} style={{ width: `${Math.round(s.obsCount / maxObs * 100)}%` }} />
               </div>
             </div>
           ))}
@@ -546,11 +548,12 @@ function TeacherActivityCard({ stats }: { stats: TeacherStat[] }) {
 }
 
 function EmptyObservations() {
+  const { t } = useI18n()
   return (
     <div className="py-8 text-center">
       <Eye className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-      <p className="text-sm text-gray-400">Наблюдений пока нет</p>
-      <p className="text-xs text-gray-300 mt-0.5">Добавьте первое наблюдение</p>
+      <p className="text-sm text-gray-400">{t('dash.noObsYet')}</p>
+      <p className="text-xs text-gray-300 mt-0.5">{t('dash.addFirst')}</p>
     </div>
   )
 }

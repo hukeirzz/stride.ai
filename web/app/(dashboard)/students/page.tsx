@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { StudentsListClient } from '@/components/students/StudentsListClient'
 import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
+import { getT } from '@/lib/i18n/server'
 
 export default async function StudentsPage() {
+  const { t } = await getT()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -64,14 +66,14 @@ export default async function StudentsPage() {
   return (
     <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between gap-3 mb-6">
-        <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Список учеников</h1>
+        <h1 className="text-lg sm:text-2xl font-bold text-gray-900">{t('stud.title')}</h1>
         {canAddStudent && (
           <Link
             href="/students/new"
             className="flex items-center gap-2 bg-[#2563EB] text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl text-sm font-medium hover:bg-[#1D4ED8] transition-colors whitespace-nowrap flex-shrink-0"
           >
             <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">Добавить ученика</span>
+            <span className="hidden sm:inline">{t('stud.add')}</span>
           </Link>
         )}
       </div>

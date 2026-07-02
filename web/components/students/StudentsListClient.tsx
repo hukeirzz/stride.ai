@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronRight, GraduationCap, Search, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { deleteStudent, deleteClass, graduateClass } from '@/app/(dashboard)/students/actions'
+import { useI18n } from '@/lib/i18n/I18nProvider'
 
 interface Student {
   id: string
@@ -29,11 +30,15 @@ const CLASS_COLORS = [
   'bg-pink-500', 'bg-indigo-500', 'bg-green-500', 'bg-red-500',
 ]
 
-const BASE_DEPARTURE_REASONS = ['Переезд семьи', 'Другая школа', 'Недовольство', 'Финансы', 'Колледж', 'Другое']
-
-function getDepartureReasons(_grade: number) {
-  return BASE_DEPARTURE_REASONS
-}
+// value — каноничное значение (хранится в БД, используется в аналитике); key — перевод подписи
+const DEPARTURE_REASONS: { value: string; key: string }[] = [
+  { value: 'Переезд семьи', key: 'depart.move' },
+  { value: 'Другая школа', key: 'depart.otherSchool' },
+  { value: 'Недовольство', key: 'depart.dissatisfaction' },
+  { value: 'Финансы', key: 'depart.finance' },
+  { value: 'Колледж', key: 'depart.college' },
+  { value: 'Другое', key: 'depart.other' },
+]
 
 interface DeleteModal {
   studentId: string
@@ -42,6 +47,7 @@ interface DeleteModal {
 }
 
 export function StudentsListClient({ classList, canDelete = false, noRecentObsIds = [] }: { classList: ClassGroup[]; canDelete?: boolean; noRecentObsIds?: string[] }) {
+  const { t } = useI18n()
   const router = useRouter()
   const atRiskSet = new Set(noRecentObsIds)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -100,7 +106,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
   }
 
   async function handleGraduateClass(classId: string, name: string) {
-    if (!confirm(`Выпустить класс «${name}»?\nВсе ученики будут отмечены как выпускники, класс будет удалён.`)) return
+    if (!confirm(t('stud.confirmGraduate', { name }))) return
     setLoadingId(classId)
     setError(null)
     const res = await graduateClass(classId)
@@ -111,7 +117,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
   }
 
   async function handleDeleteClass(classId: string, name: string) {
-    if (!confirm(`Удалить класс «${name}»? Это действие нельзя отменить.`)) return
+    if (!confirm(t('stud.confirmDeleteClass', { name }))) return
     setLoadingId(classId)
     setError(null)
     const res = await deleteClass(classId)
@@ -135,10 +141,10 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
           <div className="flex-shrink-0 flex flex-col justify-center">
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-bold text-gray-900">{totalCount}</span>
-              <span className="text-sm text-gray-400">учеников</span>
+              <span className="text-sm text-gray-400">{t('stud.studentsWord')}</span>
             </div>
             {showMinus && (
-              <span className="text-xs font-semibold text-red-500 mt-0.5">−1 ученик удалён</span>
+              <span className="text-xs font-semibold text-red-500 mt-0.5">{t('stud.deleted1')}</span>
             )}
           </div>
           <div className="relative flex-1">
@@ -146,7 +152,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по имени ученика..."
+              placeholder={t('stud.searchStudent')}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
             />
           </div>
@@ -156,7 +162,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
           <div className="text-sm text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{error}</div>
         )}
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-gray-400 text-sm">Ученики не найдены</div>
+          <div className="text-center py-12 text-gray-400 text-sm">{t('stud.notFound')}</div>
         )}
 
         {filtered.map((cls, idx) => {
@@ -179,12 +185,12 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                           {cls.name}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-semibold text-gray-900">{cls.name} класс</span>
-                          <span className="text-xs text-gray-400 ml-2">{cls.students.length} уч.</span>
+                          <span className="text-sm font-semibold text-gray-900">{cls.name} {t('stud.classWord')}</span>
+                          <span className="text-xs text-gray-400 ml-2">{cls.students.length} {t('stud.studentsAbbr')}</span>
                           {/* Mobile: inline stats */}
                           <div className="flex items-center gap-1.5 mt-0.5 sm:hidden">
-                            {riskCount > 0 && <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{riskCount} риск</span>}
-                            {totalAlerts > 0 && <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">{totalAlerts} тр.</span>}
+                            {riskCount > 0 && <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{riskCount} {t('stud.riskShort')}</span>}
+                            {totalAlerts > 0 && <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">{totalAlerts} {t('stud.alertsAbbr')}</span>}
                           </div>
                         </div>
                         {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
@@ -192,7 +198,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                     </td>
                     {/* Desktop-only stat columns */}
                     <td className="hidden sm:table-cell px-6 py-4">
-                      <div className="text-[10px] font-medium text-gray-400 mb-1">В зоне риска</div>
+                      <div className="text-[10px] font-medium text-gray-400 mb-1">{t('stud.atRiskCol')}</div>
                       {riskCount > 0 ? (
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">
                           <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" />{riskCount}
@@ -200,22 +206,22 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                       ) : <span className="text-xs text-gray-300">—</span>}
                     </td>
                     <td className="hidden sm:table-cell px-6 py-4 text-center">
-                      <div className="text-[10px] font-medium text-gray-400 mb-1">Наблюдения</div>
+                      <div className="text-[10px] font-medium text-gray-400 mb-1">{t('stud.observations')}</div>
                       <span className={cn('text-sm font-semibold', totalObs === 0 ? 'text-gray-200' : 'text-gray-700')}>{totalObs}</span>
                     </td>
                     <td className="hidden sm:table-cell px-6 py-4 text-right">
-                      <div className="text-[10px] font-medium text-gray-400 mb-1">Тревожные</div>
+                      <div className="text-[10px] font-medium text-gray-400 mb-1">{t('stud.alerts')}</div>
                       {totalAlerts > 0 ? <span className="text-sm font-semibold text-red-500">{totalAlerts}</span> : <span className="text-xs text-gray-200">—</span>}
                     </td>
                     <td className="px-4 py-3.5 sm:px-5 sm:py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       {canDelete && (
                         <div className="flex items-center justify-end gap-1 sm:opacity-0 sm:group-hover/cls:opacity-100">
                           {(cls.grade === 11 || cls.grade === 12) && (
-                            <button onClick={() => handleGraduateClass(cls.id, cls.name)} disabled={loadingId === cls.id} title="Выпустить класс" className="p-1.5 text-gray-400 hover:text-yellow-500 active:text-yellow-500 hover:bg-yellow-50 rounded-lg transition-all">
+                            <button onClick={() => handleGraduateClass(cls.id, cls.name)} disabled={loadingId === cls.id} title={t('stud.graduateClass')} className="p-1.5 text-gray-400 hover:text-yellow-500 active:text-yellow-500 hover:bg-yellow-50 rounded-lg transition-all">
                               <GraduationCap className="w-4 h-4" />
                             </button>
                           )}
-                          <button onClick={() => handleDeleteClass(cls.id, cls.name)} disabled={loadingId === cls.id} title="Удалить класс" className="p-1.5 text-gray-400 hover:text-red-500 active:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                          <button onClick={() => handleDeleteClass(cls.id, cls.name)} disabled={loadingId === cls.id} title={t('stud.deleteClass')} className="p-1.5 text-gray-400 hover:text-red-500 active:text-red-500 hover:bg-red-50 rounded-lg transition-all">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -226,10 +232,10 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                   {/* ── Column headers (desktop) ── */}
                   {isOpen && cls.students.length > 0 && (
                     <tr className="bg-gray-50/70 border-t border-gray-100">
-                      <th className="text-left text-[11px] font-medium text-gray-400 px-4 py-2 sm:px-5">Ученик</th>
-                      <th className="hidden sm:table-cell text-left text-[11px] font-medium text-gray-400 px-6 py-2">Статус</th>
-                      <th className="hidden sm:table-cell text-center text-[11px] font-medium text-gray-400 px-6 py-2">Наблюдения</th>
-                      <th className="hidden sm:table-cell text-right text-[11px] font-medium text-gray-400 px-6 py-2">Тревожные</th>
+                      <th className="text-left text-[11px] font-medium text-gray-400 px-4 py-2 sm:px-5">{t('stud.student')}</th>
+                      <th className="hidden sm:table-cell text-left text-[11px] font-medium text-gray-400 px-6 py-2">{t('stud.status')}</th>
+                      <th className="hidden sm:table-cell text-center text-[11px] font-medium text-gray-400 px-6 py-2">{t('stud.observations')}</th>
+                      <th className="hidden sm:table-cell text-right text-[11px] font-medium text-gray-400 px-6 py-2">{t('stud.alerts')}</th>
                       <th className="px-4 py-2 sm:px-5"></th>
                     </tr>
                   )}
@@ -251,14 +257,14 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                               <div className="sm:hidden mt-0.5">
                                 {isAtRisk ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
-                                    <span className="w-1 h-1 rounded-full bg-red-500 inline-block" />Риск
+                                    <span className="w-1 h-1 rounded-full bg-red-500 inline-block" />{t('stud.risk')}
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
-                                    <span className="w-1 h-1 rounded-full bg-green-400 inline-block" />Норма
+                                    <span className="w-1 h-1 rounded-full bg-green-400 inline-block" />{t('stud.normal')}
                                   </span>
                                 )}
-                                {student.obs_count > 0 && <span className="text-[10px] text-gray-400 ml-1.5">{student.obs_count} набл.</span>}
+                                {student.obs_count > 0 && <span className="text-[10px] text-gray-400 ml-1.5">{student.obs_count} {t('stud.obsAbbr')}</span>}
                               </div>
                             </div>
                           </div>
@@ -266,11 +272,11 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                         <td className="hidden sm:table-cell px-6 py-3">
                           {isAtRisk ? (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full whitespace-nowrap">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />В зоне риска
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />{t('stud.atRiskCol')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />Норма
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />{t('stud.normal')}
                             </span>
                           )}
                         </td>
@@ -283,7 +289,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                         <td className="px-4 py-3 sm:px-5 text-right" onClick={(e) => e.stopPropagation()}>
                           {student.alert_count > 0 && <span className="sm:hidden text-xs font-semibold text-red-500 mr-1">⚠{student.alert_count}</span>}
                           {canDelete && (
-                            <button onClick={() => openDeleteModal(student.id, student.full_name, cls.grade)} disabled={loadingId === student.id} title="Удалить ученика" className="p-1.5 text-gray-400 hover:text-red-500 active:text-red-500 hover:bg-red-50 rounded-lg transition-all sm:opacity-0 sm:group-hover/row:opacity-100">
+                            <button onClick={() => openDeleteModal(student.id, student.full_name, cls.grade)} disabled={loadingId === student.id} title={t('stud.deleteStudent')} className="p-1.5 text-gray-400 hover:text-red-500 active:text-red-500 hover:bg-red-50 rounded-lg transition-all sm:opacity-0 sm:group-hover/row:opacity-100">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -293,7 +299,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                   })}
 
                   {isOpen && cls.students.length === 0 && (
-                    <tr><td colSpan={5} className="text-center text-sm text-gray-400 py-6 border-t border-gray-50">Нет учеников</td></tr>
+                    <tr><td colSpan={5} className="text-center text-sm text-gray-400 py-6 border-t border-gray-50">{t('stud.noStudents')}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -314,18 +320,16 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
               <X className="w-4 h-4" />
             </button>
 
-            <h2 className="text-base font-semibold text-gray-900 mb-1">Причина ухода</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Укажите причину ухода ученика <span className="font-medium text-gray-700">{deleteModal.name}</span>
-            </p>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">{t('stud.departTitle')}</h2>
+            <p className="text-sm text-gray-500 mb-5">{t('stud.departDesc', { name: deleteModal.name })}</p>
 
             <div className="space-y-2.5 mb-5">
-              {getDepartureReasons(deleteModal.grade).map((reason) => (
+              {DEPARTURE_REASONS.map((reason) => (
                 <label
-                  key={reason}
+                  key={reason.value}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all',
-                    selectedReason === reason
+                    selectedReason === reason.value
                       ? 'border-blue-400 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   )}
@@ -333,12 +337,12 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                   <input
                     type="radio"
                     name="departure_reason"
-                    value={reason}
-                    checked={selectedReason === reason}
-                    onChange={() => setSelectedReason(reason)}
+                    value={reason.value}
+                    checked={selectedReason === reason.value}
+                    onChange={() => setSelectedReason(reason.value)}
                     className="w-4 h-4 accent-blue-600"
                   />
-                  <span className="text-sm font-medium text-gray-700">{reason}</span>
+                  <span className="text-sm font-medium text-gray-700">{t(reason.key)}</span>
                 </label>
               ))}
 
@@ -346,7 +350,7 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                 <textarea
                   value={otherText}
                   onChange={(e) => setOtherText(e.target.value)}
-                  placeholder="Опишите причину..."
+                  placeholder={t('stud.describeReason')}
                   rows={3}
                   className="w-full mt-1 px-4 py-3 text-sm rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-none"
                   autoFocus
@@ -359,14 +363,14 @@ export function StudentsListClient({ classList, canDelete = false, noRecentObsId
                 onClick={closeDeleteModal}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={!canConfirm || loadingId === deleteModal.studentId}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors"
               >
-                {loadingId === deleteModal.studentId ? 'Удаление...' : 'Подтвердить'}
+                {loadingId === deleteModal.studentId ? t('stud.deleting') : t('stud.confirm')}
               </button>
             </div>
           </div>

@@ -115,10 +115,6 @@ export default async function HomePage() {
       .select('author_id, created_at, students!inner(school_id)')
       .eq('source', 'manual').eq('students.school_id', schoolId).gte('created_at', since30d),
   ])
-  const TEACHER_ROLE_LABELS: Record<string, string> = {
-    deputy: 'Завуч', class_teacher: 'Кл. рук.', teacher: 'Учитель',
-    psychologist: 'Психолог', nurse: 'Медсестра', security: 'Охрана',
-  }
   const teacherObs30d: Record<string, { total: number; lastObs: string }> = {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const o of (staffObs30dRes.data ?? []) as any[]) {
@@ -127,10 +123,11 @@ export default async function HomePage() {
     teacherObs30d[a].total++
     if (o.created_at > teacherObs30d[a].lastObs) teacherObs30d[a].lastObs = o.created_at
   }
+  // role передаём ключом — перевод на клиенте (t('role.' + role))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teacherStats = ((staffRes.data ?? []) as any[]).map((u) => ({
     name: u.full_name as string,
-    role: TEACHER_ROLE_LABELS[u.role as string] ?? (u.role as string),
+    role: u.role as string,
     obsCount: teacherObs30d[u.id]?.total ?? 0,
     lastObs: teacherObs30d[u.id]?.lastObs ?? null,
   })).sort((a, b) => b.obsCount - a.obsCount)
